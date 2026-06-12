@@ -269,7 +269,7 @@ app.delete('/api/dishes/:id', authorize(['admin', 'manager']), async (req, res) 
 
 // Place Order
 app.post('/api/orders', async (req, res) => {
-    const { items, total, orderType, paymentMethod, customer_id, table_id } = req.body;
+    const { items, total, orderType, paymentMethod, customer_id, table_id, reservation_id } = req.body;
     const errors = validate(['items', 'total', 'orderType', 'paymentMethod'], req.body);
     
     if (errors.length > 0) return res.status(400).json({ error: errors.join(', ') });
@@ -311,8 +311,8 @@ app.post('/api/orders', async (req, res) => {
         }
 
         // 2. Insert Order
-        await runQuery("INSERT INTO orders (id, total, date, status, order_type, payment_method, customer_id, table_id) VALUES (?, ?, ?, 'Preparing', ?, ?, ?, ?)", 
-            [orderId, total, date, orderType, paymentMethod, customer_id, table_id]);
+        await runQuery("INSERT INTO orders (id, total, date, status, order_type, payment_method, customer_id, table_id, reservation_id) VALUES (?, ?, ?, 'Preparing', ?, ?, ?, ?, ?)", 
+            [orderId, total, date, orderType, paymentMethod, customer_id, table_id, reservation_id]);
 
         // 3. Process Items & Update Inventory
         for (const item of items) {

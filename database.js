@@ -60,8 +60,11 @@ db.serialize(() => {
         payment_method TEXT, -- Cash, Card, Online
         cashier_id INTEGER,
         customer_id INTEGER,
+        table_id INTEGER,
+        reservation_id INTEGER,
         FOREIGN KEY(cashier_id) REFERENCES users(id),
-        FOREIGN KEY(customer_id) REFERENCES customers(id)
+        FOREIGN KEY(customer_id) REFERENCES customers(id),
+        FOREIGN KEY(reservation_id) REFERENCES reservations(id)
     )`, (err) => {
         if (!err) {
             // Check if customer_id column exists, if not add it
@@ -69,6 +72,9 @@ db.serialize(() => {
                 if (err && !err.message.includes("duplicate column name")) console.error(err);
             });
             db.run("ALTER TABLE orders ADD COLUMN table_id INTEGER", (err) => {
+                if (err && !err.message.includes("duplicate column name")) console.error(err);
+            });
+            db.run("ALTER TABLE orders ADD COLUMN reservation_id INTEGER", (err) => {
                 if (err && !err.message.includes("duplicate column name")) console.error(err);
             });
         }

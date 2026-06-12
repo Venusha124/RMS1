@@ -63,12 +63,13 @@
                     <span>Calendar</span>
                 </a>
                 <a href="#/reports" class="nav-item" data-route="/reports">
-                    <i class="fa-solid fa-file-invoice"></i>
-                    <span>Reports</span>
+                    <i class="fa-solid fa-chart-line"></i><span>Reports</span>
+                </a>
+                <a href="#/payments" class="nav-item" data-route="/payments">
+                    <i class="fa-solid fa-file-invoice-dollar"></i><span>Payments & Invoices</span>
                 </a>
                 <a href="#/settings" class="nav-item" data-route="/settings">
-                    <i class="fa-solid fa-gear"></i>
-                    <span>Settings</span>
+                    <i class="fa-solid fa-gear"></i><span>Settings</span>
                 </a>
             </nav>
 
@@ -109,65 +110,114 @@
 
     <!-- ===================== MODALS ===================== -->
 
+    <!-- Room Calendar Modal -->
+    <div class="modal-overlay" id="roomCalendarModal">
+        <div class="modal-content" style="max-width:700px; width:90%; max-height:85vh; display:flex; flex-direction:column;">
+            <button class="modal-close" onclick="closeModal('roomCalendarModal')"><i class="fa-solid fa-xmark"></i></button>
+            <h3 style="margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px;">
+                <i class="fa-regular fa-calendar-days" style="color:var(--primary); margin-right:10px;"></i>
+                <span id="roomCalendarTitleText">Venue Timeline</span>
+            </h3>
+            
+            <div id="roomCalendarContent" style="flex:1; overflow-y:auto; padding-right:10px; display:flex; flex-direction:column; gap:12px;">
+                <!-- Timeline items will be injected here -->
+            </div>
+
+            <div class="modal-actions" style="margin-top:20px; padding-top:15px; border-top:1px solid rgba(255,255,255,0.1); justify-content:flex-end;">
+                <button class="btn btn-outline" onclick="closeModal('roomCalendarModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Reservation Modal -->
     <div class="modal-overlay" id="reservationModal">
-        <div class="modal-content" style="max-width:600px;">
+        <div class="modal-content" style="max-width:800px; width:90%; max-height:90vh; display:flex; flex-direction:column;">
             <button class="modal-close" onclick="closeModal('reservationModal')"><i class="fa-solid fa-xmark"></i></button>
-            <h3><i class="fa-solid fa-calendar-check" style="color:var(--primary); margin-right:10px;"></i>New Reservation</h3>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0 20px;">
-                <div class="form-group">
-                    <label>Booking No</label>
-                    <input type="text" id="res_booking_no" readonly style="background:rgba(255,255,255,0.05); cursor:not-allowed;" placeholder="Auto-generated">
+            <h3 style="margin-bottom:15px;"><i class="fa-solid fa-calendar-check" style="color:var(--primary); margin-right:10px;"></i><span id="reservationModalTitleText">New Reservation</span></h3>
+            
+            <div class="modal-tabs" style="display:flex; gap:10px; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:20px;">
+                <button type="button" id="resTabGeneralBtn" class="filter-tab active" onclick="switchResModalTab('General')" style="margin-bottom:-1px; border-bottom-left-radius:0; border-bottom-right-radius:0; border:1px solid transparent;">General Details</button>
+                <button type="button" id="resTabMenuBtn" class="filter-tab" onclick="switchResModalTab('Menu')" style="margin-bottom:-1px; border-bottom-left-radius:0; border-bottom-right-radius:0; border:1px solid transparent;">Menu Selection</button>
+                <button type="button" id="resTabBillsBtn" class="filter-tab" onclick="switchResModalTab('Bills')" style="margin-bottom:-1px; border-bottom-left-radius:0; border-bottom-right-radius:0; border:1px solid transparent;">Restaurant Bills</button>
+            </div>
+
+            <div style="flex:1; overflow-y:auto; padding-right:10px;">
+                <!-- General Tab Content -->
+                <div id="resTabGeneralContent">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0 20px;">
+                        <div class="form-group">
+                            <label>Booking No</label>
+                            <input type="text" id="res_booking_no" readonly style="background:rgba(255,255,255,0.05); cursor:not-allowed;" placeholder="Auto-generated">
+                        </div>
+                        <div class="form-group">
+                            <label>Inquiry No (Populate Details)</label>
+                            <select id="res_inquiry_ref_no"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Event Name</label>
+                            <input type="text" id="res_event_name" placeholder="e.g. Birthday Party">
+                        </div>
+                        <div class="form-group">
+                            <label>Venue / Room</label>
+                            <select id="res_room_id"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Customer Name</label>
+                            <input type="text" id="res_customer_name" placeholder="Full name">
+                        </div>
+                        <div class="form-group">
+                            <label>Phone Number</label>
+                            <input type="text" id="res_customer_phone" placeholder="+94 77 ...">
+                        </div>
+                        <div class="form-group">
+                            <label>Date From</label>
+                            <input type="date" id="res_date_start">
+                        </div>
+                        <div class="form-group">
+                            <label>Date To</label>
+                            <input type="date" id="res_date_end">
+                        </div>
+                        <div class="form-group">
+                            <label>No. of Guests</label>
+                            <input type="number" id="res_num_guests" placeholder="100" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="res_status">
+                                <option value="Confirmed">Confirmed</option>
+                                <option value="Pending">Pending</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Total Price (Rs.)</label>
+                        <input type="number" id="res_total_price" placeholder="0.00">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Inquiry No (Populate Details)</label>
-                    <select id="res_inquiry_ref_no"></select>
+
+                <!-- Menu Tab Content -->
+                <div id="resTabMenuContent" style="display:none;">
+                    <p style="font-size:12px; color:var(--text-muted); margin-bottom:15px;">Maximum 3 items per category. More than 3 will require Sales Approval.</p>
+                    <div id="res_menu_container" class="menu-container" style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
+                        <!-- Dynamic menu categories will go here -->
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Event Name</label>
-                    <input type="text" id="res_event_name" placeholder="e.g. Birthday Party">
-                </div>
-                <div class="form-group">
-                    <label>Venue / Room</label>
-                    <select id="res_room_id"></select>
-                </div>
-                <div class="form-group">
-                    <label>Customer Name</label>
-                    <input type="text" id="res_customer_name" placeholder="Full name">
-                </div>
-                <div class="form-group">
-                    <label>Phone Number</label>
-                    <input type="text" id="res_customer_phone" placeholder="+94 77 ...">
-                </div>
-                <div class="form-group">
-                    <label>Date From</label>
-                    <input type="date" id="res_date_start">
-                </div>
-                <div class="form-group">
-                    <label>Date To</label>
-                    <input type="date" id="res_date_end">
-                </div>
-                <div class="form-group">
-                    <label>No. of Guests</label>
-                    <input type="number" id="res_num_guests" placeholder="100" min="1">
-                </div>
-                <div class="form-group">
-                    <label>Status</label>
-                    <select id="res_status">
-                        <option value="Confirmed">Confirmed</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Cancelled">Cancelled</option>
-                    </select>
+
+                <!-- Bills Tab Content -->
+                <div id="resTabBillsContent" style="display:none;">
+                    <div id="res_bills_container">
+                        <div style="text-align:center; padding:30px; color:var(--text-muted);">
+                            Save reservation to view linked bills.
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="form-group">
-                <label>Total Price (Rs.)</label>
-                <input type="number" id="res_total_price" placeholder="0.00">
-            </div>
-            <div class="modal-actions">
+
+            <div class="modal-actions" style="margin-top:20px; padding-top:15px; border-top:1px solid rgba(255,255,255,0.1);">
                 <button class="btn btn-outline" onclick="closeModal('reservationModal')">Cancel</button>
                 <button class="btn btn-primary" onclick="submitReservation()">
-                    <i class="fa-solid fa-check" style="margin-right:8px;"></i>Confirm Reservation
+                    <i class="fa-solid fa-check" style="margin-right:8px;"></i>Save Reservation
                 </button>
             </div>
         </div>
@@ -257,11 +307,13 @@
                 <div class="inq-step" id="step-dot-2">2</div>
                 <div class="inq-step-line"></div>
                 <div class="inq-step" id="step-dot-3">3</div>
+                <div class="inq-step-line"></div>
+                <div class="inq-step" id="step-dot-4">4</div>
             </div>
 
             <!-- Step 1: Customer Info -->
             <div id="inq-step-1" class="inq-step-content">
-                <p class="step-label">Step 1 of 3 — Customer Information</p>
+                <p class="step-label">Step 1 of 4 — Customer Information</p>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
                     <div class="form-group"><label>Full Name *</label><input id="inq_customer_name" type="text" placeholder="e.g. Saman Perera"></div>
                     <div class="form-group"><label>Phone Number</label><input id="inq_customer_phone" type="text" placeholder="+94 77 123 4567"></div>
@@ -284,7 +336,7 @@
 
             <!-- Step 2: Event Details -->
             <div id="inq-step-2" class="inq-step-content" style="display:none;">
-                <p class="step-label">Step 2 of 3 — Event Details</p>
+                <p class="step-label">Step 2 of 4 — Event Details</p>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
                     <div class="form-group"><label>Event Type</label>
                         <select id="inq_event_type">
@@ -315,7 +367,7 @@
 
             <!-- Step 3: Requirements -->
             <div id="inq-step-3" class="inq-step-content" style="display:none;">
-                <p class="step-label">Step 3 of 3 — Requirements & Notes</p>
+                <p class="step-label">Step 3 of 4 — Requirements & Notes</p>
                 <div class="form-group">
                     <label>Special Requirements</label>
                     <textarea id="inq_requirements" rows="4" placeholder="Describe any special setup, catering, AV equipment, decorations, or other requirements..."></textarea>
@@ -323,6 +375,15 @@
                 <div class="form-group">
                     <label>Internal Notes</label>
                     <textarea id="inq_notes" rows="3" placeholder="Internal notes for staff only..."></textarea>
+                </div>
+            </div>
+
+            <!-- Step 4: Menu Selection -->
+            <div id="inq-step-4" class="inq-step-content" style="display:none;">
+                <p class="step-label">Step 4 of 4 — Menu Selection</p>
+                <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">Maximum 3 items per category. More than 3 will require Sales Approval.</p>
+                <div id="inq_menu_container" class="menu-container" style="max-height: 40vh; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
+                    <!-- Dynamic menu categories will go here -->
                 </div>
             </div>
 
@@ -356,6 +417,76 @@
                 <button class="btn btn-outline" onclick="clearCanvas()">Clear</button>
                 <button class="btn btn-primary" id="saveSignatureBtn" style="flex:1; justify-content:center;">
                     <i class="fa-solid fa-check" style="margin-right:8px;"></i>Save & Print
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Checkout / Invoice Modal -->
+    <div class="modal-overlay" id="checkoutModal">
+        <div class="modal-content" style="max-width:700px; width:90%; padding:30px;">
+            <button class="modal-close" onclick="closeModal('checkoutModal')" style="display:none;" id="checkoutCloseBtnTop"><i class="fa-solid fa-xmark"></i></button>
+            
+            <div id="checkoutPrintArea" style="background:white; color:black; padding:40px; border-radius:8px; font-family:sans-serif;">
+                <div style="text-align:center; border-bottom:2px solid #ddd; padding-bottom:20px; margin-bottom:20px;">
+                    <h1 style="margin:0; font-size:28px; color:#333;">HOTEL ASCENDIA</h1>
+                    <p style="margin:5px 0 0; color:#666; font-size:14px;">123 Resort Boulevard, Paradise City<br>Tel: +94 11 234 5678 | Email: billing@ascendia.com</p>
+                    <h2 style="margin:20px 0 0; font-size:22px; color:#222; text-transform:uppercase; letter-spacing:2px;">Final Invoice</h2>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; margin-bottom:30px; font-size:14px;">
+                    <div>
+                        <div style="margin-bottom:5px;"><strong>Billed To:</strong> <span id="chk_customer_name"></span></div>
+                        <div style="margin-bottom:5px;"><strong>Event/Room:</strong> <span id="chk_event_name"></span></div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="margin-bottom:5px;"><strong>Invoice No:</strong> <span id="chk_booking_no"></span></div>
+                        <div style="margin-bottom:5px;"><strong>Date:</strong> <span id="chk_date"></span></div>
+                        <div style="margin-bottom:5px;"><strong>Status:</strong> <span id="chk_status" style="font-weight:bold;"></span></div>
+                    </div>
+                </div>
+
+                <table style="width:100%; border-collapse:collapse; margin-bottom:30px;">
+                    <thead>
+                        <tr style="background:#f4f4f4; border-bottom:2px solid #ccc;">
+                            <th style="padding:12px; text-align:left; font-weight:bold;">Description</th>
+                            <th style="padding:12px; text-align:right; font-weight:bold;">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody id="chk_items_body">
+                        <!-- Invoice items injected here -->
+                    </tbody>
+                </table>
+
+                <div style="display:flex; justify-content:flex-end; border-top:2px solid #ccc; padding-top:20px;">
+                    <div style="width:300px;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:16px;">
+                            <span>Subtotal:</span>
+                            <span id="chk_subtotal" style="font-weight:bold;"></span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:15px; font-size:16px; color:#555;">
+                            <span>Taxes & Fees:</span>
+                            <span id="chk_tax"></span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:24px; font-weight:bold; border-top:1px solid #ddd; padding-top:15px; color:#000;">
+                            <span>Grand Total:</span>
+                            <span id="chk_grand_total"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="text-align:center; margin-top:50px; font-size:12px; color:#888;">
+                    <p>Thank you for choosing Hotel Ascendia!</p>
+                </div>
+            </div>
+
+            <div class="modal-actions" style="margin-top:20px;" id="checkoutActionButtons">
+                <button class="btn btn-outline" onclick="closeModal('checkoutModal')">Close</button>
+                <button class="btn btn-primary" onclick="printCheckoutInvoice()" style="background:#4b5563;">
+                    <i class="fa-solid fa-print" style="margin-right:8px;"></i>Print
+                </button>
+                <button class="btn btn-primary" id="markPaidCheckoutBtn" style="background:#10b981; flex:1; justify-content:center;">
+                    <i class="fa-solid fa-check-double" style="margin-right:8px;"></i>Mark as Paid & Checkout
                 </button>
             </div>
         </div>

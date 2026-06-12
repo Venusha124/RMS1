@@ -44,6 +44,100 @@ function formatCurrency(v) {
     return `${sym()}${parseFloat(v || 0).toLocaleString()}`;
 }
 
+const EVENT_MENU = {
+    "Action Station (Live Cooking Station)": ["Pasta (Alfredo / Bolognese / Carbonara)", "Fried noodles (Chicken / Seafood / Vegetable)", "Omelette (cheese, mushroom, onion, chili options)", "Dosa / Hoppers (Sri Lankan live station)", "Stir-fried rice (egg / chicken / mixed)", "Carving roast chicken / beef slices"],
+    "Appetizers / Starters": ["Chicken spring rolls", "Vegetable samosas", "Garlic bread bites", "Devilled chicken / fish", "Prawn cocktail", "Mini sliders (beef or chicken)", "Stuffed mushrooms"],
+    "Main Course": ["Chicken curry (Sri Lankan / Indian style)", "Beef curry", "Fish ambul thiyal", "Vegetable korma", "Fried rice / steamed rice", "Pasta with sauces", "Grilled chicken steak", "Lamb stew"],
+    "Desserts / Sweet / Dessert Live Station": ["Chocolate fountain with fruits", "Ice cream (vanilla, chocolate, strawberry)", "Watalappan (Sri Lankan dessert)", "Cheesecake slices", "Fruit salad", "Pancakes with toppings (live station)", "Chocolate mousse"],
+    "Beverage Station": ["Fresh lime juice", "Orange juice", "Mango juice", "Soft drinks (cola, sprite)", "Tea (black / milk tea)", "Coffee (espresso / cappuccino)", "Mocktails (mojito, sunrise)"],
+    "Bakery / Bread Station": ["Croissants", "Dinner rolls", "Garlic bread", "Baguette slices", "Muffins (chocolate / blueberry)", "Danish pastries", "Butter & jam spreads"],
+    "Salad Bar": ["Lettuce, cucumber, tomato mix", "Beetroot salad", "Coleslaw", "Pasta salad", "Potato salad", "Corn salad", "Dressings (vinaigrette, mayo, yogurt)"],
+    "Soup Station": ["Chicken clear soup", "Cream of mushroom soup", "Sweet corn soup", "Pumpkin soup", "Seafood soup", "Lentil soup (dal soup)"],
+    "Live Grill / BBQ Station": ["Grilled chicken skewers", "Beef steak slices", "Grilled prawns", "BBQ sausages", "Grilled fish fillets", "Vegetable skewers (capsicum, mushroom, onion)"]
+};
+
+function renderMenuOptions(containerId, prefix, prefillJSON = null) {
+    const container = $(containerId);
+    if (!container) return;
+    const selectedMap = prefillJSON ? (typeof prefillJSON === 'string' ? JSON.parse(prefillJSON) : prefillJSON) : {};
+    
+    let tabsHtml = `<div class="menu-tabs-container" style="display:flex; overflow-x:auto; gap:8px; margin-bottom:15px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.1);">`;
+    let contentHtml = `<div class="menu-content-container" style="min-height:150px;">`;
+    
+    let first = true;
+    for (const [category, items] of Object.entries(EVENT_MENU)) {
+        const catId = category.replace(/[^a-zA-Z0-9]/g, '');
+        
+        tabsHtml += `<button type="button" class="btn btn-outline btn-sm ${prefix}-menu-tab-btn" 
+            onclick="window.switchMenuTab(event, '${prefix}', '${prefix}-${catId}')" 
+            style="white-space:nowrap; ${first ? 'background:var(--primary);color:#fff;border-color:var(--primary);' : ''}">
+            ${category}
+        </button>`;
+        
+        contentHtml += `<div id="${prefix}-${catId}" class="${prefix}-menu-tab-content" style="display:${first ? 'block' : 'none'};">
+            <h5 style="color:var(--primary); margin-bottom:10px;">${category}</h5>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">`;
+        
+        items.forEach(item => {
+            const isChecked = selectedMap[category] && selectedMap[category].includes(item);
+            contentHtml += `<label style="font-size: 13px; display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding:8px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.05); border-radius:6px;">
+                <input type="checkbox" class="${prefix}-menu-cb" data-category="${category}" value="${item}" ${isChecked ? 'checked' : ''} onchange="window.handleMenuCheckboxChange(event)" style="margin-top:2px; flex-shrink: 0;">
+                <span style="line-height:1.2;">${item}</span>
+            </label>`;
+        });
+        contentHtml += `</div></div>`;
+        first = false;
+    }
+    
+    tabsHtml += `</div>`;
+    contentHtml += `</div>`;
+    
+    container.innerHTML = tabsHtml + contentHtml;
+}
+
+window.switchMenuTab = function(e, prefix, targetId) {
+    document.querySelectorAll(`.${prefix}-menu-tab-content`).forEach(el => el.style.display = 'none');
+    document.querySelectorAll(`.${prefix}-menu-tab-btn`).forEach(btn => {
+        btn.style.background = '';
+        btn.style.color = '';
+        btn.style.borderColor = '';
+    });
+    const target = document.getElementById(targetId);
+    if (target) target.style.display = 'block';
+    const btn = e.currentTarget;
+    btn.style.background = 'var(--primary)';
+    btn.style.color = '#fff';
+    btn.style.borderColor = 'var(--primary)';
+};
+
+window.handleMenuCheckboxChange = function(e) {
+    const cb = e.target;
+    const category = cb.getAttribute('data-category');
+    let prefix = 'res';
+    if (cb.classList.contains('inq-menu-cb')) prefix = 'inq';
+
+    const checkedCount = document.querySelectorAll(`.${prefix}-menu-cb[data-category="${category}"]:checked`).length;
+    
+    if (checkedCount > 3 && cb.checked) {
+        showToast(`Warning: Selecting more than 3 items in "${category}" will require Sales Approval.`, 'warning');
+    }
+};
+
+function getMenuSelections(prefix) {
+    const checkboxes = document.querySelectorAll(`.${prefix}-menu-cb:checked`);
+    const selections = {};
+    let requiresApproval = false;
+    checkboxes.forEach(cb => {
+        const cat = cb.getAttribute('data-category');
+        if (!selections[cat]) selections[cat] = [];
+        selections[cat].push(cb.value);
+    });
+    for (const cat in selections) {
+        if (selections[cat].length > 3) requiresApproval = true;
+    }
+    return { menu_selections: Object.keys(selections).length ? selections : null, requiresApproval };
+}
+
 // ─── Router ──────────────────────────────────────────────────────────────────
 const routes = {
     '/dashboard': renderDashboard,
@@ -56,6 +150,7 @@ const routes = {
     '/approval':  renderApproval,
     '/calendar':  renderCalendar,
     '/reports':   renderReports,
+    '/payments':  renderPayments,
     '/settings':  renderSettings
 };
 
@@ -112,6 +207,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // RESERVATION MODAL
 // ═══════════════════════════════════════════════════════════════════════════════
+
+function switchResModalTab(tab) {
+    $('resTabGeneralBtn').classList.remove('active');
+    $('resTabMenuBtn').classList.remove('active');
+    $('resTabBillsBtn').classList.remove('active');
+    $('resTabGeneralContent').style.display = 'none';
+    $('resTabMenuContent').style.display = 'none';
+    $('resTabBillsContent').style.display = 'none';
+
+    if (tab === 'General') {
+        $('resTabGeneralBtn').classList.add('active');
+        $('resTabGeneralContent').style.display = 'block';
+    } else if (tab === 'Menu') {
+        $('resTabMenuBtn').classList.add('active');
+        $('resTabMenuContent').style.display = 'block';
+    } else if (tab === 'Bills') {
+        $('resTabBillsBtn').classList.add('active');
+        $('resTabBillsContent').style.display = 'block';
+    }
+}
+
 let _editingReservationId = null;
 
 function openReservationModal(prefillOrId = null) {
@@ -141,6 +257,7 @@ function openReservationModal(prefillOrId = null) {
             if (inq.preferred_date) $('res_date_start').value = inq.preferred_date.split('T')[0];
             if (inq.num_guests) $('res_num_guests').value = inq.num_guests;
             if (inq.budget) $('res_total_price').value = inq.budget;
+            if (inq.menu_selections) renderMenuOptions('res_menu_container', 'res', inq.menu_selections);
         }
     };
 
@@ -156,8 +273,56 @@ function openReservationModal(prefillOrId = null) {
     fields.forEach((id, i) => $(id).value = values[i] || '');
     if (prefill) $('res_status').value = prefill.status || 'Pending';
 
-    $('reservationModal').querySelector('h3').innerHTML =
-        `<i class="fa-solid fa-calendar-check" style="color:var(--primary);margin-right:10px;"></i>${_editingReservationId ? 'Edit Reservation' : 'New Reservation'}`;
+    renderMenuOptions('res_menu_container', 'res', prefill ? prefill.menu_selections : null);
+
+    $('reservationModalTitleText').innerHTML = _editingReservationId ? 'Edit Reservation' : 'New Reservation';
+
+    // Fetch and display bills if editing
+    if (_editingReservationId) {
+        fetch(`/api/reservations/${_editingReservationId}/orders`)
+            .then(res => res.json())
+            .then(orders => {
+                const container = $('res_bills_container');
+                if (!orders || orders.length === 0) {
+                    container.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-muted);">No restaurant bills found for this reservation.</div>';
+                } else {
+                    let html = '<div style="display:flex; flex-direction:column; gap:10px;">';
+                    let grandTotal = 0;
+                    orders.forEach(o => {
+                        grandTotal += o.total;
+                        const date = new Date(o.date).toLocaleString();
+                        html += `
+                            <div style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:15px;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">
+                                    <div><strong>Order ID:</strong> ${o.id} <span style="margin-left:10px; font-size:12px; color:var(--primary);">${o.status}</span></div>
+                                    <div style="font-size:12px; color:var(--text-muted);">${date}</div>
+                                </div>
+                                <div style="font-size:13px; margin-bottom:10px;">
+                                    ${o.items && o.items.map(i => `<div>${i.qty}x ${i.dish_name} - ${sym()}${(i.price * i.qty).toFixed(2)}</div>`).join('')}
+                                </div>
+                                <div style="text-align:right; font-weight:bold; color:var(--primary);">
+                                    Total: ${sym()}${o.total.toFixed(2)}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += `
+                        <div style="margin-top:15px; text-align:right; font-size:16px; font-weight:bold;">
+                            Grand Total: ${sym()}${grandTotal.toFixed(2)}
+                        </div>
+                    `;
+                    html += '</div>';
+                    container.innerHTML = html;
+                }
+            })
+            .catch(err => {
+                $('res_bills_container').innerHTML = '<div style="text-align:center; padding:30px; color:#ef4444;">Failed to load restaurant bills.</div>';
+            });
+    } else {
+        $('res_bills_container').innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-muted);">Save reservation to view linked bills.</div>';
+    }
+
+    switchResModalTab('General');
 
     openModal('reservationModal');
 }
@@ -176,6 +341,13 @@ async function submitReservation() {
         status:          $('res_status').value,
         total_price:     $('res_total_price').value
     };
+
+    const menuData = getMenuSelections('res');
+    body.menu_selections = menuData.menu_selections;
+    if (menuData.requiresApproval) {
+        body.status = 'Pending';
+        showToast('More than 3 items selected per category. Forcing status to Pending for Sales Approval.', 'info');
+    }
     
     // Front-end Validations
     if (!body.event_name) { showToast('Event name is required', 'warning'); return; }
@@ -269,13 +441,14 @@ function openInquiryModal(inqOrId = null) {
     }
 
     $('inquiryModalTitle').innerHTML = `<i class="fa-solid fa-clipboard-question" style="color:var(--primary);margin-right:10px;"></i>${_editingInquiryId ? 'Edit Inquiry' : 'New Inquiry'}`;
+    renderMenuOptions('inq_menu_container', 'inq', inq ? inq.menu_selections : null);
     _inqGoToStep(1);
     openModal('inquiryModal');
 }
 
 function _inqGoToStep(step) {
     _inqStep = step;
-    [1,2,3].forEach(s => {
+    [1,2,3,4].forEach(s => {
         const el = $(`inq-step-${s}`);
         if (el) el.style.display = s === step ? '' : 'none';
         const dot = $(`step-dot-${s}`);
@@ -290,8 +463,8 @@ function _inqGoToStep(step) {
     });
 
     $('inqPrevBtn').style.display  = step > 1 ? '' : 'none';
-    $('inqNextBtn').style.display  = step < 3 ? '' : 'none';
-    $('inqSubmitBtn').style.display = step === 3 ? '' : 'none';
+    $('inqNextBtn').style.display  = step < 4 ? '' : 'none';
+    $('inqSubmitBtn').style.display = step === 4 ? '' : 'none';
 }
 
 function inqNext() {
@@ -309,7 +482,7 @@ function inqNext() {
         if (budget && budget < 0) { showToast('Budget cannot be negative', 'warning'); return; }
         if (guests && guests < 1) { showToast('Number of guests must be at least 1', 'warning'); return; }
     }
-    if (_inqStep < 3) _inqGoToStep(_inqStep + 1);
+    if (_inqStep < 4) _inqGoToStep(_inqStep + 1);
 }
 
 function inqPrev() {
@@ -333,6 +506,12 @@ async function submitInquiry() {
         follow_up_date:   $('inq_follow_up_date').value,
         notes:            $('inq_notes').value.trim()
     };
+    
+    const menuData = getMenuSelections('inq');
+    body.menu_selections = menuData.menu_selections;
+    if (menuData.requiresApproval) {
+        body.status = 'Pending'; // Override to pending if more than 3 per category
+    }
     
     // Front-end Validations
     if (!body.customer_name) { showToast('Customer name is required', 'warning'); return; }
@@ -416,6 +595,16 @@ function viewInquiryDetail(inqOrId) {
         <div style="margin-bottom:20px;">
             <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Internal Notes</label>
             <div style="margin-top:6px;padding:12px;background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.15);border-radius:10px;font-size:14px;line-height:1.6;">${inq.notes}</div>
+        </div>` : ''}
+
+        ${inq.menu_selections ? `
+        <div style="margin-bottom:20px;">
+            <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Menu Selection</label>
+            <div style="margin-top:6px;padding:12px;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.1);border-radius:10px;font-size:13px;">
+                ${Object.entries(typeof inq.menu_selections === 'string' ? JSON.parse(inq.menu_selections) : inq.menu_selections).map(([cat, items]) => 
+                    `<strong style="color:var(--primary);">${cat}</strong> (${items.length}): <br>${items.map(i=>`• ${i}`).join('<br>')}<br><br>`
+                ).join('')}
+            </div>
         </div>` : ''}
 
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -608,6 +797,66 @@ function checkOverlap(roomId, dateStart, dateEnd, excludeResId = null) {
     });
 }
 
+// ─── Payments & Invoices View ────────────────────────────────────────────────
+function renderPayments(c) {
+    const completedReservations = store.data.reservations.filter(r => r.status === 'Completed' || r.status === 'Checked Out');
+    
+    c.innerHTML = `
+    <div class="header">
+        <div class="header-title">
+            <h1 class="page-title"><i class="fa-solid fa-file-invoice-dollar" style="color:var(--primary);margin-right:10px;"></i>Payments & Invoices</h1>
+            <p style="color:var(--text-muted);font-size:14px;margin-top:5px;">Ledger of all completed and paid reservations.</p>
+        </div>
+    </div>
+    
+    <div class="card" style="margin-top:20px;">
+        ${completedReservations.length === 0 ? `
+            <div class="empty-state">
+                <i class="fa-regular fa-folder-open"></i>
+                <h3>No Completed Invoices</h3>
+                <p>There are no checked-out reservations yet.</p>
+            </div>
+        ` : `
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Invoice / Booking No</th>
+                            <th>Customer</th>
+                            <th>Event / Venue</th>
+                            <th>Date Completed</th>
+                            <th>Total Amount</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${completedReservations.sort((a,b) => b.id - a.id).map(r => `
+                            <tr>
+                                <td style="font-weight:700; color:var(--primary);">${r.booking_no || 'BKG-'+String(r.id).padStart(4,'0')}</td>
+                                <td>
+                                    <div style="font-weight:600;">${r.customer_name}</div>
+                                    <div style="font-size:12px;color:var(--text-muted);">${r.customer_phone || ''}</div>
+                                </td>
+                                <td>${r.event_name} <br><span style="font-size:11px;color:var(--text-muted);">${r.room_name || ''}</span></td>
+                                <td style="font-size:13px;color:var(--text-muted);">${new Date(r.date_end || r.updated_at || r.created_at || Date.now()).toLocaleDateString()}</td>
+                                <td style="color:var(--primary);font-weight:700;">${formatCurrency(r.total_price || 0)} <span style="font-size:10px; color:#666;">(+ POS)</span></td>
+                                <td><span style="background:rgba(16, 185, 129, 0.1); color:#10b981; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:700;"><i class="fa-solid fa-check" style="margin-right:4px;"></i>PAID</span></td>
+                                <td>
+                                    <button class="btn btn-outline btn-sm" onclick="checkoutReservation(${r.id})" title="View Invoice" style="border-color:#10b981;color:#10b981;">
+                                        <i class="fa-solid fa-eye" style="margin-right:6px;"></i>View Invoice
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `}
+    </div>
+    `;
+}
+
 async function deleteWaitlistEntry(id) {
     if (!confirm('Remove this customer from the waitlist queue?')) return;
     try {
@@ -630,6 +879,111 @@ async function updateReservationStatus(id, status) {
             }, 500);
         }
     } catch(e) { showToast('Failed to update status: ' + e.message, 'danger'); }
+}
+
+let _currentCheckoutId = null;
+
+async function checkoutReservation(id) {
+    const res = store.data.reservations.find(r => r.id === id);
+    if (!res) return showToast('Reservation not found', 'error');
+    
+    _currentCheckoutId = id;
+    
+    $('chk_customer_name').textContent = res.customer_name;
+    $('chk_event_name').textContent = res.event_name;
+    $('chk_booking_no').textContent = res.booking_no || ('BKG-' + String(id).padStart(4, '0'));
+    $('chk_date').textContent = new Date().toLocaleDateString();
+    
+    if (res.status === 'Completed') {
+        $('chk_status').textContent = 'PAID';
+        $('chk_status').style.color = '#10b981';
+        $('markPaidCheckoutBtn').style.display = 'none';
+    } else {
+        $('chk_status').textContent = 'UNPAID';
+        $('chk_status').style.color = '#ef4444';
+        $('markPaidCheckoutBtn').style.display = 'flex';
+        $('markPaidCheckoutBtn').onclick = () => finalizeCheckout(id);
+    }
+
+    let subtotal = 0;
+    let itemsHtml = '';
+
+    // 1. Add Room/Event Charge
+    if (res.total_price) {
+        subtotal += parseFloat(res.total_price);
+        itemsHtml += `
+            <tr style="border-bottom:1px solid #eee;">
+                <td style="padding:12px;"><strong>Event/Room Charge:</strong> Venue Booking</td>
+                <td style="padding:12px; text-align:right;">${sym()}${parseFloat(res.total_price).toFixed(2)}</td>
+            </tr>
+        `;
+    }
+
+    // 2. Fetch Restaurant Orders
+    try {
+        const ordersRes = await fetch(`/api/reservations/${id}/orders`);
+        const orders = await ordersRes.json();
+        
+        if (orders && orders.length > 0) {
+            orders.forEach(o => {
+                subtotal += parseFloat(o.total);
+                itemsHtml += `
+                    <tr style="border-bottom:1px solid #eee;">
+                        <td style="padding:12px;">
+                            <strong>Restaurant Order #${o.id}</strong>
+                            <div style="font-size:12px; color:#666;">${o.items ? o.items.map(i => i.qty + 'x ' + i.dish_name).join(', ') : ''}</div>
+                        </td>
+                        <td style="padding:12px; text-align:right;">${sym()}${parseFloat(o.total).toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+        }
+    } catch (err) {
+        console.error('Error fetching orders for checkout', err);
+    }
+
+    $('chk_items_body').innerHTML = itemsHtml;
+    
+    const tax = 0; // Tax is assumed included or calculate if needed
+    const grandTotal = subtotal + tax;
+
+    $('chk_subtotal').textContent = `${sym()}${subtotal.toFixed(2)}`;
+    $('chk_tax').textContent = `${sym()}${tax.toFixed(2)}`;
+    $('chk_grand_total').textContent = `${sym()}${grandTotal.toFixed(2)}`;
+
+    openModal('checkoutModal');
+}
+
+async function finalizeCheckout(id) {
+    if (!confirm('Are you sure you want to mark this reservation as Paid and Checkout?')) return;
+    
+    try {
+        await store.fetchAPI(`/reservations/${id}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: 'Completed' })
+        });
+        showToast('Reservation Checked Out & Marked as Paid', 'success');
+        $('chk_status').textContent = 'PAID';
+        $('chk_status').style.color = '#10b981';
+        $('markPaidCheckoutBtn').style.display = 'none';
+        
+        await store.refreshData();
+        renderBooking($('content')); // refresh UI
+    } catch (err) {
+        showToast('Error finalizing checkout', 'error');
+    }
+}
+
+function printCheckoutInvoice() {
+    const printContent = document.getElementById('checkoutPrintArea').innerHTML;
+    const originalContent = document.body.innerHTML;
+    
+    document.body.innerHTML = printContent;
+    window.print();
+    document.body.innerHTML = originalContent;
+    
+    // reattach events
+    window.location.reload();
 }
 
 async function deleteReservation(id) {
@@ -751,6 +1105,64 @@ async function deleteRoom(id) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// ROOM CALENDAR (TIMELINE) MODAL
+// ═══════════════════════════════════════════════════════════════════════════════
+function openRoomCalendar(roomId) {
+    const room = store.data.eventRooms.find(r => r.id === roomId);
+    if (!room) return;
+
+    $('roomCalendarTitleText').innerText = `${room.name} — Availability Timeline`;
+
+    const now = new Date();
+    // Get active reservations for this room, starting from today or future
+    const bookings = store.data.reservations.filter(r => 
+        r.room_id == roomId && 
+        r.status !== 'Cancelled' && 
+        (new Date(r.date_end || r.date_start) >= new Date(now.setHours(0,0,0,0)))
+    ).sort((a, b) => new Date(a.date_start) - new Date(b.date_start));
+
+    const content = $('roomCalendarContent');
+    
+    if (bookings.length === 0) {
+        content.innerHTML = `
+            <div class="empty-state" style="padding:40px 20px;">
+                <i class="fa-solid fa-calendar-check" style="color:#10b981; font-size:48px; margin-bottom:15px; opacity:1;"></i>
+                <h3 style="margin-bottom:8px;">Fully Available!</h3>
+                <p style="color:var(--text-muted); font-size:14px;">There are no upcoming bookings for this venue.</p>
+            </div>
+        `;
+    } else {
+        content.innerHTML = bookings.map(b => {
+            const start = new Date(b.date_start);
+            const end = b.date_end ? new Date(b.date_end) : start;
+            const isToday = start.toDateString() === new Date().toDateString();
+            const dateStr = start.getTime() === end.getTime() 
+                ? formatDate(b.date_start) 
+                : `${formatDate(b.date_start)} — ${formatDate(b.date_end)}`;
+            
+            return `
+            <div style="background:rgba(255,255,255,0.03); border-left:4px solid ${b.status === 'Confirmed' ? '#10b981' : '#f59e0b'}; border-radius:6px; padding:12px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <div style="font-size:12px; color:var(--primary); font-weight:700; margin-bottom:4px;">${dateStr} ${isToday ? '<span class="badge badge-warning" style="margin-left:8px; font-size:9px;">TODAY</span>' : ''}</div>
+                    <div style="font-weight:700; font-size:15px;">${b.event_name}</div>
+                    <div style="font-size:13px; color:var(--text-muted); margin-top:2px;">
+                        <i class="fa-solid fa-user" style="margin-right:5px;"></i>${b.customer_name} 
+                        <span style="margin:0 8px;">•</span> 
+                        <i class="fa-solid fa-users" style="margin-right:5px;"></i>${b.num_guests || 0} guests
+                    </div>
+                </div>
+                <div>
+                    ${statusBadge(b.status)}
+                </div>
+            </div>
+            `;
+        }).join('');
+    }
+
+    openModal('roomCalendarModal');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // BOOKING INLINE FORM
 // ═══════════════════════════════════════════════════════════════════════════════
 async function submitBookingForm() {
@@ -841,10 +1253,17 @@ function reservationTable(reservations, opts = {}) {
             <tbody>
              ${reservations.map(r => `
                 <tr>
-                    <td>
+                    <td style="vertical-align:top;">
                         <div style="font-size:12px;color:var(--primary);font-weight:700;">${r.booking_no || 'BKG-'+String(r.id).padStart(4,'0')}</div>
                         <div style="font-weight:700;">${r.event_name}</div>
                         ${r.inquiry_ref_no ? `<div style="font-size:11px;color:var(--text-muted);"><i class="fa-solid fa-clipboard-question"></i> Ref: ${r.inquiry_ref_no}</div>` : ''}
+                        ${r.menu_selections && !opts.hideMenu ? `
+                        <div style="margin-top:8px;padding:8px;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.05);border-radius:6px;font-size:11px;line-height:1.4;">
+                            <strong style="color:var(--primary);display:block;margin-bottom:4px;">Menu Selection:</strong>
+                            ${Object.entries(typeof r.menu_selections === 'string' ? JSON.parse(r.menu_selections) : r.menu_selections).map(([cat, items]) => 
+                                `<div style="margin-bottom:3px;"><span style="color:#a8b2d1;font-weight:600;">${cat}:</span> ${items.join(', ')}</div>`
+                            ).join('')}
+                        </div>` : ''}
                     </td>
                     <td>
                         <div style="font-weight:600;">${r.customer_name}</div>
@@ -866,6 +1285,10 @@ function reservationTable(reservations, opts = {}) {
                                 <button class="btn btn-danger btn-sm" onclick="updateReservationStatus(${r.id},'Cancelled')">
                                     <i class="fa-solid fa-xmark"></i>
                                 </button>` : ''}
+                            ${(r.status === 'Confirmed' || r.status === 'Checked In' || r.status === 'Completed') ? `
+                                <button class="btn btn-outline btn-sm" onclick="checkoutReservation(${r.id})" title="Checkout / Invoice" style="border-color:#10b981;color:#10b981;">
+                                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                                </button>` : ''}
                             <button class="btn btn-outline btn-sm" onclick="openReservationModal(${r.id})" title="Edit">
                                 <i class="fa-solid fa-pen"></i>
                             </button>
@@ -873,6 +1296,52 @@ function reservationTable(reservations, opts = {}) {
                                 <i class="fa-solid fa-trash"></i>
                             </button>
                         </div>
+                    </td>
+                </tr>
+            `).join('')}
+            </tbody>
+        </table>
+    </div>`;
+}
+
+function eventMenuTable(reservations) {
+    if (!reservations.length) return `
+        <div class="empty-state">
+            <i class="fa-solid fa-utensils"></i>
+            <h3>No Records Found</h3>
+            <p>No events with menu selections yet.</p>
+        </div>`;
+    return `
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead><tr>
+                <th>Event Details</th>
+                <th>Menu Selections</th>
+                <th>Actions</th>
+            </tr></thead>
+            <tbody>
+             ${reservations.map(r => `
+                <tr>
+                    <td style="vertical-align:top; width:250px;">
+                        <div style="font-size:12px;color:var(--primary);font-weight:700;">${r.booking_no || 'BKG-'+String(r.id).padStart(4,'0')}</div>
+                        <div style="font-weight:700;font-size:15px;margin-bottom:4px;">${r.event_name}</div>
+                        <div style="font-size:13px;"><i class="fa-solid fa-user" style="color:var(--text-muted);margin-right:5px;"></i>${r.customer_name}</div>
+                        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;"><i class="fa-solid fa-calendar" style="margin-right:5px;"></i>${formatDate(r.date_start)}</div>
+                        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;"><i class="fa-solid fa-users" style="margin-right:5px;"></i>${r.num_guests || '0'} guests</div>
+                        <div style="margin-top:8px;">${statusBadge(r.status)}</div>
+                    </td>
+                    <td style="vertical-align:top;">
+                        ${r.menu_selections ? `
+                        <div style="padding:12px;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.05);border-radius:8px;font-size:13px;line-height:1.5;display:grid;grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));gap:12px;">
+                            ${Object.entries(typeof r.menu_selections === 'string' ? JSON.parse(r.menu_selections) : r.menu_selections).map(([cat, items]) => 
+                                `<div><strong style="color:var(--primary);display:block;margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:2px;">${cat}</strong>${items.map(i=>`<div style="color:#d1d5db;margin-bottom:2px;">• ${i}</div>`).join('')}</div>`
+                            ).join('')}
+                        </div>` : `<div style="color:var(--text-muted);font-size:13px;font-style:italic;">No menu items selected for this event.</div>`}
+                    </td>
+                    <td style="vertical-align:top; width:120px;">
+                        <button class="btn btn-outline btn-sm" onclick="openReservationModal(${r.id})" title="Edit Menu" style="width:100%;justify-content:center;">
+                            <i class="fa-solid fa-pen" style="margin-right:6px;"></i> Update
+                        </button>
                     </td>
                 </tr>
             `).join('')}
@@ -1168,10 +1637,12 @@ function renderBooking(c) {
     };
 }
 
+let _eventTab = 'General';
+
 function renderEvents(c) {
     c.innerHTML = `
     <div class="card">
-        <div class="section-header">
+        <div class="section-header" style="margin-bottom: 20px;">
             <div>
                 <h2><i class="fa-solid fa-champagne-glasses" style="color:var(--primary);margin-right:10px;"></i>Event Management</h2>
                 <p>${store.data.reservations.length} events in database</p>
@@ -1180,7 +1651,20 @@ function renderEvents(c) {
                 <i class="fa-solid fa-plus" style="margin-right:8px;"></i>Create Event
             </button>
         </div>
-        ${reservationTable(store.data.reservations, { showConfirm: true, showReject: true })}
+
+        <div class="filter-tabs" style="margin-bottom:24px;">
+            <button class="filter-tab ${_eventTab === 'General' ? 'active' : ''}" onclick="_eventTab='General'; navigate('/events');">
+                <i class="fa-solid fa-table-list" style="margin-right:6px;"></i>General Details
+            </button>
+            <button class="filter-tab ${_eventTab === 'Menu' ? 'active' : ''}" onclick="_eventTab='Menu'; navigate('/events');">
+                <i class="fa-solid fa-utensils" style="margin-right:6px;"></i>Menu Sections
+            </button>
+        </div>
+
+        ${_eventTab === 'General' 
+            ? reservationTable(store.data.reservations, { showConfirm: true, showReject: true, hideMenu: true })
+            : eventMenuTable(store.data.reservations)
+        }
     </div>`;
 }
 
@@ -1224,10 +1708,13 @@ function renderRooms(c) {
                         <button class="btn btn-primary btn-sm" style="flex:1;justify-content:center;" onclick="openReservationModal()">
                             <i class="fa-solid fa-calendar-plus" style="margin-right:6px;"></i>Book
                         </button>
-                        <button class="btn btn-outline btn-sm" onclick="openRoomModal(${r.id})">
+                        <button class="btn btn-outline btn-sm" onclick="openRoomCalendar(${r.id})" title="View Timeline">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                        </button>
+                        <button class="btn btn-outline btn-sm" onclick="openRoomModal(${r.id})" title="Edit Venue">
                             <i class="fa-solid fa-pen"></i>
                         </button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteRoom(${r.id})">
+                        <button class="btn btn-danger btn-sm" onclick="deleteRoom(${r.id})" title="Delete">
                             <i class="fa-solid fa-trash"></i>
                         </button>
                     </div>
@@ -1646,14 +2133,23 @@ function renderApproval(c) {
                 <tbody>
                 ${pending.map(r => `
                     <tr>
-                        <td style="font-weight:700;">${r.event_name}</td>
-                        <td>${r.customer_name}<br><span style="font-size:12px;color:var(--text-muted);">${r.customer_phone || ''}</span></td>
-                        <td style="color:var(--text-muted);">${r.room_name || '—'}</td>
-                        <td>${r.num_guests || '—'}</td>
-                        <td style="color:var(--primary);font-weight:700;">${formatCurrency(r.total_price)}</td>
-                        <td style="font-size:13px;color:var(--text-muted);">${formatDate(r.date_start)}</td>
-                        <td>
-                            <div style="display:flex;gap:8px;">
+                        <td style="vertical-align:top;">
+                            <div style="font-weight:700;">${r.event_name}</div>
+                            ${r.menu_selections ? `
+                            <div style="margin-top:8px;padding:8px;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.05);border-radius:6px;font-size:11px;line-height:1.4;">
+                                <strong style="color:var(--primary);display:block;margin-bottom:4px;">Menu Requested:</strong>
+                                ${Object.entries(typeof r.menu_selections === 'string' ? JSON.parse(r.menu_selections) : r.menu_selections).map(([cat, items]) => 
+                                    `<div style="margin-bottom:3px;"><span style="color:#a8b2d1;font-weight:600;">${cat}:</span> ${items.join(', ')}</div>`
+                                ).join('')}
+                            </div>` : ''}
+                        </td>
+                        <td style="vertical-align:top;">${r.customer_name}<br><span style="font-size:12px;color:var(--text-muted);">${r.customer_phone || ''}</span></td>
+                        <td style="vertical-align:top;color:var(--text-muted);">${r.room_name || '—'}</td>
+                        <td style="vertical-align:top;">${r.num_guests || '—'}</td>
+                        <td style="vertical-align:top;color:var(--primary);font-weight:700;">${formatCurrency(r.total_price)}</td>
+                        <td style="vertical-align:top;font-size:13px;color:var(--text-muted);">${formatDate(r.date_start)}</td>
+                        <td style="vertical-align:top;">
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
                                 <button class="btn btn-primary btn-sm" onclick="updateReservationStatus(${r.id},'Confirmed')">
                                     <i class="fa-solid fa-check" style="margin-right:5px;"></i>Approve & Save
                                 </button>

@@ -87,6 +87,7 @@ db.serialize(() => {
         created_at TEXT DEFAULT (datetime('now')),
         inquiry_ref_no TEXT,
         booking_no TEXT,
+        menu_selections TEXT,
         FOREIGN KEY(room_id) REFERENCES event_rooms(id)
     )`);
 
@@ -96,6 +97,8 @@ db.serialize(() => {
     db.run("ALTER TABLE reservations ADD COLUMN signature_data TEXT", () => {});
     db.run("ALTER TABLE reservations ADD COLUMN inquiry_ref_no TEXT", () => {});
     db.run("ALTER TABLE reservations ADD COLUMN booking_no TEXT", () => {});
+    db.run("ALTER TABLE reservations ADD COLUMN menu_selections TEXT", () => {});
+    db.run("ALTER TABLE inquiries ADD COLUMN menu_selections TEXT", () => {});
 
     // ── Waitlist Table ───────────────────────────────────────────────────────
     db.run(`CREATE TABLE IF NOT EXISTS waitlist (
@@ -145,6 +148,7 @@ db.serialize(() => {
         notes TEXT,
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now')),
+        menu_selections TEXT,
         FOREIGN KEY(preferred_room_id) REFERENCES event_rooms(id)
     )`);
 
@@ -205,7 +209,7 @@ app.get('/api/inquiries/:id', async (req, res) => {
 app.post('/api/inquiries', async (req, res) => {
     const { customer_name, customer_phone, customer_email, event_type, preferred_date,
             flexible_date, num_guests, preferred_room_id, budget, requirements,
-            source, assigned_to, follow_up_date, notes } = req.body;
+            source, assigned_to, follow_up_date, notes, menu_selections } = req.body;
     if (!customer_name) return res.status(400).json({ error: 'Customer name is required' });
     if (!customer_phone && !customer_email) return res.status(400).json({ error: 'At least one contact method is required' });
     if (customer_phone && !/^\+?[0-9\s\-\(\)]{7,15}$/.test(customer_phone)) return res.status(400).json({ error: 'Invalid phone number format' });
@@ -219,11 +223,12 @@ app.post('/api/inquiries', async (req, res) => {
             (ref_no, customer_name, customer_phone, customer_email, event_type,
              preferred_date, flexible_date, num_guests, preferred_room_id,
              budget, requirements, source, status, assigned_to, follow_up_date, notes,
-             created_at, updated_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'New',?,?,?,datetime('now'),datetime('now'))
+             menu_selections, created_at, updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'New',?,?,?,?,datetime('now'),datetime('now'))
         `, [ref_no, customer_name, customer_phone, customer_email, event_type,
             preferred_date, flexible_date ? 1 : 0, num_guests, preferred_room_id || null,
-            budget, requirements, source || 'Walk-in', assigned_to, follow_up_date, notes]);
+            budget, requirements, source || 'Walk-in', assigned_to, follow_up_date, notes,
+            menu_selections ? JSON.stringify(menu_selections) : null]);
         const inquiry = await getOne(`SELECT i.*, e.name as room_name FROM inquiries i LEFT JOIN event_rooms e ON i.preferred_room_id = e.id WHERE i.id = ?`, [result.lastID]);
         res.status(201).json(inquiry);
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -233,7 +238,7 @@ app.post('/api/inquiries', async (req, res) => {
 app.put('/api/inquiries/:id', async (req, res) => {
     const { customer_name, customer_phone, customer_email, event_type, preferred_date,
             flexible_date, num_guests, preferred_room_id, budget, requirements,
-            source, status, assigned_to, follow_up_date, notes } = req.body;
+            source, status, assigned_to, follow_up_date, notes, menu_selections } = req.body;
     if (!customer_name) return res.status(400).json({ error: 'Customer name is required' });
     if (!customer_phone && !customer_email) return res.status(400).json({ error: 'At least one contact method is required' });
     if (customer_phone && !/^\+?[0-9\s\-\(\)]{7,15}$/.test(customer_phone)) return res.status(400).json({ error: 'Invalid phone number format' });
@@ -246,11 +251,12 @@ app.put('/api/inquiries/:id', async (req, res) => {
             customer_name=?, customer_phone=?, customer_email=?, event_type=?,
             preferred_date=?, flexible_date=?, num_guests=?, preferred_room_id=?,
             budget=?, requirements=?, source=?, status=?, assigned_to=?,
-            follow_up_date=?, notes=?, updated_at=datetime('now')
+            follow_up_date=?, notes=?, menu_selections=?, updated_at=datetime('now')
             WHERE id=?
         `, [customer_name, customer_phone, customer_email, event_type,
             preferred_date, flexible_date ? 1 : 0, num_guests, preferred_room_id || null,
-            budget, requirements, source, status, assigned_to, follow_up_date, notes, req.params.id]);
+            budget, requirements, source, status, assigned_to, follow_up_date, notes,
+            menu_selections ? JSON.stringify(menu_selections) : null, req.params.id]);
         const inquiry = await getOne(`SELECT i.*, e.name as room_name FROM inquiries i LEFT JOIN event_rooms e ON i.preferred_room_id = e.id WHERE i.id = ?`, [req.params.id]);
         res.json(inquiry);
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -276,11 +282,11 @@ app.post('/api/inquiries/:id/convert', async (req, res) => {
         const bookingNo = generateBookingNo();
 
         const resResult = await runQuery(`
-            INSERT INTO reservations (booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, num_guests, status, total_price, notes, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, datetime('now'))
+            INSERT INTO reservations (booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, num_guests, status, total_price, notes, menu_selections, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?, datetime('now'))
         `, [bookingNo, inq.ref_no, inq.event_type || 'Event', inq.customer_name, inq.customer_phone,
             inq.preferred_room_id || null, inq.preferred_date, inq.num_guests,
-            inq.budget, inq.requirements]);
+            inq.budget, inq.requirements, inq.menu_selections]);
 
         await runQuery("UPDATE inquiries SET status='Converted', updated_at=datetime('now') WHERE id=?", [inq.id]);
 
@@ -403,7 +409,7 @@ app.get('/api/reservations/:id', async (req, res) => {
 
 // POST create reservation + update room status
 app.post('/api/reservations', async (req, res) => {
-    const { booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes } = req.body;
+    const { booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes, menu_selections } = req.body;
     if (!event_name || !customer_name || !date_start) {
         return res.status(400).json({ error: 'Event name, customer name and date_start are required' });
     }
@@ -415,9 +421,9 @@ app.post('/api/reservations', async (req, res) => {
     const finalBookingNo = booking_no || generateBookingNo();
     try {
         const result = await runQuery(
-            `INSERT INTO reservations (booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-            [finalBookingNo, inquiry_ref_no || null, event_name, customer_name, customer_phone, room_id || null, date_start, date_end, num_guests, status || 'Pending', total_price, notes || null]
+            `INSERT INTO reservations (booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes, menu_selections, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+            [finalBookingNo, inquiry_ref_no || null, event_name, customer_name, customer_phone, room_id || null, date_start, date_end, num_guests, status || 'Pending', total_price, notes || null, menu_selections ? JSON.stringify(menu_selections) : null]
         );
 
         // If confirmed, mark room as booked and seed default maintenance/buffer tasks
@@ -441,7 +447,7 @@ app.post('/api/reservations', async (req, res) => {
 
 // PUT update reservation status (confirm, cancel, etc.)
 app.put('/api/reservations/:id', async (req, res) => {
-    const { booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes } = req.body;
+    const { booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes, menu_selections } = req.body;
     if (!event_name || !customer_name || !date_start) {
         return res.status(400).json({ error: 'Event name, customer name and date_start are required' });
     }
@@ -454,9 +460,9 @@ app.put('/api/reservations/:id', async (req, res) => {
         const old = await getOne("SELECT * FROM reservations WHERE id = ?", [req.params.id]);
 
         await runQuery(
-            `UPDATE reservations SET booking_no=?, inquiry_ref_no=?, event_name=?, customer_name=?, customer_phone=?, room_id=?, date_start=?, date_end=?, num_guests=?, status=?, total_price=?, notes=?
+            `UPDATE reservations SET booking_no=?, inquiry_ref_no=?, event_name=?, customer_name=?, customer_phone=?, room_id=?, date_start=?, date_end=?, num_guests=?, status=?, total_price=?, notes=?, menu_selections=?
              WHERE id=?`,
-            [booking_no || old.booking_no, inquiry_ref_no || old.inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes, req.params.id]
+            [booking_no || old.booking_no, inquiry_ref_no || old.inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes, menu_selections !== undefined ? JSON.stringify(menu_selections) : old.menu_selections, req.params.id]
         );
 
         let promoted = null;

@@ -169,7 +169,7 @@ const store = {
         this.saveCart();
     },
 
-    async placeOrder(orderType = 'Dine In', paymentMethod = 'Cash', tableId = null, customerId = null) {
+    async placeOrder(orderType = 'Dine In', paymentMethod = 'Cash', tableId = null, customerId = null, reservationId = null) {
         if (this.data.cart.length === 0) {
             window.showToast("Cart is empty!", "error");
             return null;
@@ -185,7 +185,8 @@ const store = {
             orderType, 
             paymentMethod, 
             table_id: tableId,
-            customer_id: customerId 
+            customer_id: customerId,
+            reservation_id: reservationId
         };
 
         try {

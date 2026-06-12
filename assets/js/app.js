@@ -703,10 +703,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="payment-total-box" style="background:var(--primary-light); padding:20px; border-radius:12px; text-align:center; margin:24px 0;">
                         <span id="paymentModalTotal" style="font-size:32px; font-weight:800; color:var(--primary);">${currency}0.00</span>
                     </div>
-                    <div class="payment-options" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:20px;">
+                    <div class="payment-options" style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:10px; margin-bottom:20px;">
                         <button class="payment-opt-btn active" data-method="Cash"><span>CASH</span></button>
                         <button class="payment-opt-btn" data-method="Card"><span>CARD</span></button>
-                        <button class="payment-opt-btn" data-method="QR"><span>QR PAYMENTS</span></button>
+                        <button class="payment-opt-btn" data-method="QR"><span>QR</span></button>
+                        <button class="payment-opt-btn" data-method="Room"><span>BILL TO ROOM</span></button>
                     </div>
                     <div id="paymentDetailsArea" style="display:none; margin-bottom:20px;">
                         <div id="cardFields" style="display:none;">
@@ -722,6 +723,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <img src="assets/images/payment_qr.png" alt="Payment QR Code" class="qr-code-img">
                                 <span class="qr-instruction">Scan this code with your banking app to pay.</span>
                             </div>
+                        </div>
+                        <div id="roomFields" style="display:none;">
+                            <select id="reservationSelect" style="width:100%; padding:12px; border:1px solid var(--border-color); border-radius:8px; margin-bottom:12px; background:rgba(255,255,255,0.05); color:var(--text-main); outline:none;">
+                                <option value="">Select Active Reservation</option>
+                            </select>
                         </div>
                     </div>
                     <div class="modal-actions">
@@ -1017,6 +1023,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!store.data.selectedCustomerId) return window.showToast("Select Customer", "error");
                 
                 document.getElementById('paymentModalTotal').textContent = document.querySelector('.summary-total-val').textContent;
+                
+                // Populate Active Reservations
+                const activeRes = (store.data.reservations || []).filter(r => r.status === 'Confirmed' || r.status === 'Pending');
+                const resSelect = document.getElementById('reservationSelect');
+                if (resSelect) {
+                    resSelect.innerHTML = '<option value="">Select Active Reservation</option>' + activeRes.map(r => `<option value="${r.id}">${r.event_name || 'Room'} (${r.customer_name})</option>`).join('');
+                }
+
                 document.getElementById('paymentModal').style.display = 'flex';
             }
 
@@ -1073,8 +1087,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const selectedMethod = btn.getAttribute('data-method');
                 
                 // Show/Hide specific detail areas
-                document.getElementById('paymentDetailsArea').style.display = (selectedMethod === 'Card' || selectedMethod === 'QR') ? 'block' : 'none';
+                document.getElementById('paymentDetailsArea').style.display = (selectedMethod === 'Card' || selectedMethod === 'QR' || selectedMethod === 'Room') ? 'block' : 'none';
                 document.getElementById('cardFields').style.display = selectedMethod === 'Card' ? 'block' : 'none';
+                document.getElementById('roomFields').style.display = selectedMethod === 'Room' ? 'block' : 'none';
                 
                 const qrFields = document.getElementById('qrFields');
                 if (selectedMethod === 'QR') {
@@ -1121,7 +1136,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!/^\d{3,4}$/.test(cCVV)) { window.markInvalid('cardCVVInput'); return window.showToast("CVV must be 3 or 4 digits", "error"); }
             }
 
-            const order = await store.placeOrder(store.data.currentOrderType, method, store.data.selectedTableId, store.data.selectedCustomerId);
+            let resId = null;
+            if (method === 'Room') {
+                resId = document.getElementById('reservationSelect').value;
+                if (!resId) return window.showToast("Please select a reservation to bill to", "error");
+            }
+
+            const order = await store.placeOrder(store.data.currentOrderType, method, store.data.selectedTableId, store.data.selectedCustomerId, resId);
             if (order) {
                 payModal.style.display = 'none';
                 document.getElementById('receiptDate').textContent = new Date().toLocaleString();
