@@ -125,7 +125,13 @@ db.serialize(() => {
         email TEXT,
         loyalty_points INTEGER DEFAULT 0,
         total_spent REAL DEFAULT 0.0
-    )`);
+    )`, (err) => {
+        if (!err) {
+            db.run("ALTER TABLE customers ADD COLUMN customer_type TEXT DEFAULT 'Personal'", (e) => {});
+            db.run("ALTER TABLE customers ADD COLUMN contact_person TEXT", (e) => {});
+            db.run("ALTER TABLE customers ADD COLUMN contact_person_phone TEXT", (e) => {});
+        }
+    });
 
     // 11. Event Rooms
     db.run(`CREATE TABLE IF NOT EXISTS event_rooms (
@@ -135,7 +141,12 @@ db.serialize(() => {
         price_per_day REAL,
         type TEXT,
         status TEXT
-    )`);
+    )`, (err) => {
+        if (!err) {
+            db.run("ALTER TABLE event_rooms ADD COLUMN setup_buffer_hours REAL DEFAULT 0", (e) => {});
+            db.run("ALTER TABLE event_rooms ADD COLUMN cleanup_buffer_hours REAL DEFAULT 0", (e) => {});
+        }
+    });
 
     // 12. Reservations
     db.run(`CREATE TABLE IF NOT EXISTS reservations (
@@ -158,6 +169,18 @@ db.serialize(() => {
             db.run("ALTER TABLE reservations ADD COLUMN signature_data TEXT", (err) => {});
             db.run("ALTER TABLE reservations ADD COLUMN inquiry_ref_no TEXT", (err) => {});
             db.run("ALTER TABLE reservations ADD COLUMN booking_no TEXT", (err) => {});
+            db.run("ALTER TABLE reservations ADD COLUMN master_booking_id INTEGER", (err) => {});
+            db.run("ALTER TABLE reservations ADD COLUMN pax_size INTEGER", (err) => {});
+            db.run("ALTER TABLE reservations ADD COLUMN function_type TEXT", (err) => {});
+            db.run("ALTER TABLE reservations ADD COLUMN event_type TEXT", (err) => {});
+            db.run("ALTER TABLE reservations ADD COLUMN package_type TEXT", (err) => {});
+            db.run("ALTER TABLE reservations ADD COLUMN meal_type TEXT", (err) => {});
+            db.run("ALTER TABLE reservations ADD COLUMN start_time TEXT", (err) => {});
+            db.run("ALTER TABLE reservations ADD COLUMN end_time TEXT", (err) => {});
+            db.run("ALTER TABLE reservations ADD COLUMN meal_time TEXT", (err) => {});
+            db.run("ALTER TABLE reservations ADD COLUMN children_count INTEGER", (err) => {});
+            db.run("ALTER TABLE reservations ADD COLUMN description TEXT", (err) => {});
+            db.run("ALTER TABLE reservations ADD COLUMN pos_charges REAL DEFAULT 0.0", (err) => {});
         }
     });
 
@@ -186,6 +209,48 @@ db.serialize(() => {
         due_date TEXT,
         FOREIGN KEY(room_id) REFERENCES event_rooms(id),
         FOREIGN KEY(reservation_id) REFERENCES reservations(id)
+    )`);
+
+    // 15. Reservation Ledger (Payments)
+    db.run(`CREATE TABLE IF NOT EXISTS reservation_ledger (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        reservation_id INTEGER,
+        amount REAL,
+        payment_type TEXT, -- Deposit, Milestone, Final
+        status TEXT DEFAULT 'Pending', -- Pending, Paid
+        due_date TEXT,
+        paid_date TEXT,
+        FOREIGN KEY(reservation_id) REFERENCES reservations(id)
+    )`);
+
+    // 16. Event Equipment & Services
+    db.run(`CREATE TABLE IF NOT EXISTS event_equipment (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        price_per_day REAL,
+        total_quantity INTEGER,
+        type TEXT -- AV, Decor, Staff
+    )`);
+
+    // 17. Reservation Equipment Map
+    db.run(`CREATE TABLE IF NOT EXISTS reservation_equipment (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        reservation_id INTEGER,
+        equipment_id INTEGER,
+        quantity INTEGER,
+        price_at_time REAL,
+        FOREIGN KEY(reservation_id) REFERENCES reservations(id),
+        FOREIGN KEY(equipment_id) REFERENCES event_equipment(id)
+    )`);
+
+    // 18. Master Bookings (Group Bookings)
+    db.run(`CREATE TABLE IF NOT EXISTS master_bookings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        master_event_name TEXT,
+        customer_name TEXT,
+        customer_phone TEXT,
+        status TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
     )`);
 
     // Seed Data (if empty)
@@ -271,6 +336,13 @@ db.serialize(() => {
             db.run("INSERT INTO event_rooms (name, capacity, price_per_day, type, status) VALUES ('Grand Banquet Hall', 200, 50000.00, 'Banquet', 'Available')");
             db.run("INSERT INTO event_rooms (name, capacity, price_per_day, type, status) VALUES ('Executive Meeting Room', 20, 15000.00, 'Meeting', 'Available')");
             db.run("INSERT INTO event_rooms (name, capacity, price_per_day, type, status) VALUES ('Rooftop Terrace', 100, 30000.00, 'Outdoor', 'Available')");
+
+            // Seed Event Equipment
+            db.run("INSERT INTO event_rooms (name, capacity, price_per_day, type, status) VALUES ('Banquet Hall B', 150, 40000.00, 'Banquet', 'Available')");
+            db.run("INSERT INTO event_equipment (name, price_per_day, total_quantity, type) VALUES ('Premium PA System', 10000.00, 2, 'AV')");
+            db.run("INSERT INTO event_equipment (name, price_per_day, total_quantity, type) VALUES ('4K Projector & Screen', 5000.00, 3, 'AV')");
+            db.run("INSERT INTO event_equipment (name, price_per_day, total_quantity, type) VALUES ('Floral Arch Decor', 15000.00, 1, 'Decor')");
+            db.run("INSERT INTO event_equipment (name, price_per_day, total_quantity, type) VALUES ('Professional DJ Service', 25000.00, 2, 'Staff')");
         }
     });
 });

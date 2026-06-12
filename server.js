@@ -138,7 +138,7 @@ app.post('/api/users', authorize(['admin']), async (req, res) => {
     const errors = validate({
         username: { required: true },
         password: { required: true },
-        role: { required: true, enum: ['admin', 'cashier', 'kitchen', 'manager', 'waiter'] },
+        role: { required: true, enum: ['admin', 'cashier', 'kitchen', 'manager', 'waiter', 'finance'] },
         name: { required: true }
     }, req.body);
     if (errors.length > 0) return res.status(400).json({ error: errors.join(', ') });
@@ -163,7 +163,7 @@ app.post('/api/users', authorize(['admin']), async (req, res) => {
 app.put('/api/users/:id', authorize(['admin']), async (req, res) => {
     const { role, name, password } = req.body;
     const errors = validate({
-        role: { required: true, enum: ['admin', 'cashier', 'kitchen', 'manager', 'waiter'] },
+        role: { required: true, enum: ['admin', 'cashier', 'kitchen', 'manager', 'waiter', 'finance'] },
         name: { required: true }
     }, req.body);
     if (errors.length > 0) return res.status(400).json({ error: errors.join(', ') });
@@ -340,6 +340,11 @@ app.post('/api/orders', async (req, res) => {
 
         // 6. Audit Log
         await addAuditLog(req.headers['x-user-id'], 'CREATE', 'ORDER', orderId, `Placed ${orderType} order for ${total}`);
+
+        // 7. Update Reservation POS Charges
+        if (reservation_id) {
+            await runQuery("UPDATE reservations SET pos_charges = pos_charges + ? WHERE id = ?", [total, reservation_id]);
+        }
 
         await runQuery("COMMIT");
 
@@ -641,7 +646,7 @@ app.get('/api/customers', async (req, res) => {
 });
 
 app.post('/api/customers', authorize(['admin', 'manager', 'cashier']), async (req, res) => {
-    const { name, phone, email, address } = req.body;
+    const { name, phone, email, address, customer_type, contact_person, contact_person_phone } = req.body;
     const errors = validate({
         name: { required: true },
         phone: { required: true },
@@ -650,15 +655,18 @@ app.post('/api/customers', authorize(['admin', 'manager', 'cashier']), async (re
     if (errors.length > 0) return res.status(400).json({ error: errors.join(', ') });
 
     try {
-        const result = await runQuery("INSERT INTO customers (name, phone, email) VALUES (?, ?, ?)", [name, phone, email]);
-        res.json({ id: result.lastID, name, phone, email, loyalty_points: 0, total_spent: 0 });
+        const result = await runQuery(
+            "INSERT INTO customers (name, phone, email, customer_type, contact_person, contact_person_phone) VALUES (?, ?, ?, ?, ?, ?)",
+            [name, phone, email, customer_type || 'Personal', contact_person || null, contact_person_phone || null]
+        );
+        res.json({ id: result.lastID, name, phone, email, loyalty_points: 0, total_spent: 0, customer_type, contact_person, contact_person_phone });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
 app.put('/api/customers/:id', authorize(['admin', 'manager', 'cashier']), async (req, res) => {
-    const { name, phone, email, loyalty_points, total_spent } = req.body;
+    const { name, phone, email, loyalty_points, total_spent, customer_type, contact_person, contact_person_phone } = req.body;
     const errors = validate({
         name: { required: true },
         phone: { required: true },
@@ -669,8 +677,8 @@ app.put('/api/customers/:id', authorize(['admin', 'manager', 'cashier']), async 
     if (errors.length > 0) return res.status(400).json({ error: errors.join(', ') });
 
     try {
-        const result = await runQuery("UPDATE customers SET name=?, phone=?, email=?, loyalty_points=?, total_spent=? WHERE id=?", 
-            [name, phone, email, loyalty_points, total_spent, req.params.id]);
+        const result = await runQuery("UPDATE customers SET name=?, phone=?, email=?, loyalty_points=?, total_spent=?, customer_type=?, contact_person=?, contact_person_phone=? WHERE id=?", 
+            [name, phone, email, loyalty_points, total_spent, customer_type, contact_person, contact_person_phone, req.params.id]);
         if (result.changes === 0) return res.status(404).json({ error: "Customer not found" });
         res.json({ success: true });
     } catch (err) {

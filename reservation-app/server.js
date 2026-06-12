@@ -1,13 +1,21 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const http = require('http');
+const { Server } = require('socket.io');
 const db = require('../database');
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: '*' } });
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // Increased limit for base64 uploads
 app.use(express.static(path.join(__dirname, '')));
+
+io.on('connection', (socket) => {
+    console.log('Client connected to reservation socket');
+});
 
 // --- DATABASE HELPERS ---
 const runQuery = (query, params = []) => new Promise((resolve, reject) => {
@@ -38,7 +46,7 @@ const promoteWaitlistIfAny = async (roomId) => {
         // Insert new pending reservation
         const result = await runQuery(`
             INSERT INTO reservations (event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending', 0.0, ?, datetime('now'))
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'Draft', 0.0, ?, datetime('now'))
         `, [nextInLine.event_name || 'Waitlisted Event', nextInLine.customer_name, nextInLine.customer_phone, roomId, nextInLine.date_start, nextInLine.date_end, nextInLine.num_guests, nextInLine.notes || 'Promoted from Waitlist']);
         
         // Seed default setup/buffer tasks
@@ -70,7 +78,10 @@ db.serialize(() => {
         price_per_day REAL,
         type TEXT,
         status TEXT DEFAULT 'Available'
-    )`);
+    )`, () => {
+        db.run("ALTER TABLE event_rooms ADD COLUMN setup_buffer_hours REAL DEFAULT 0", () => {});
+        db.run("ALTER TABLE event_rooms ADD COLUMN cleanup_buffer_hours REAL DEFAULT 0", () => {});
+    });
 
     db.run(`CREATE TABLE IF NOT EXISTS reservations (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,7 +109,18 @@ db.serialize(() => {
     db.run("ALTER TABLE reservations ADD COLUMN inquiry_ref_no TEXT", () => {});
     db.run("ALTER TABLE reservations ADD COLUMN booking_no TEXT", () => {});
     db.run("ALTER TABLE reservations ADD COLUMN menu_selections TEXT", () => {});
+    db.run("ALTER TABLE reservations ADD COLUMN master_booking_id INTEGER", () => {});
+    db.run("ALTER TABLE reservations ADD COLUMN payment_slip TEXT", () => {});
     db.run("ALTER TABLE inquiries ADD COLUMN menu_selections TEXT", () => {});
+
+    // ── Notifications Table ──────────────────────────────────────────────────
+    db.run(`CREATE TABLE IF NOT EXISTS notifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        role TEXT,
+        message TEXT,
+        is_read INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now', 'localtime'))
+    )`);
 
     // ── Waitlist Table ───────────────────────────────────────────────────────
     db.run(`CREATE TABLE IF NOT EXISTS waitlist (
@@ -125,6 +147,66 @@ db.serialize(() => {
         due_date TEXT,
         FOREIGN KEY(room_id) REFERENCES event_rooms(id),
         FOREIGN KEY(reservation_id) REFERENCES reservations(id)
+    )`);
+
+    // ── Reservation Ledger (Payments) ──────────────────────────────────────────────
+    db.run(`CREATE TABLE IF NOT EXISTS reservation_ledger (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        reservation_id INTEGER,
+        amount REAL,
+        payment_type TEXT,
+        status TEXT DEFAULT 'Pending',
+        due_date TEXT,
+        paid_date TEXT,
+        FOREIGN KEY(reservation_id) REFERENCES reservations(id)
+    )`);
+
+});
+
+// ═══════════════════════════════════════════════════════════
+// AUTHENTICATION API
+// ═══════════════════════════════════════════════════════════
+app.post('/api/login', async (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: "Username and password required" });
+    try {
+        const user = await getOne("SELECT id, username, role, name FROM users WHERE username = ? AND password = ?", [username, password]);
+        if (!user) return res.status(401).json({ error: "Invalid username or password" });
+        res.json({ user });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+db.serialize(() => {
+    // ── Event Equipment & Services ──────────────────────────────────────────────
+    db.run(`CREATE TABLE IF NOT EXISTS event_equipment (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        price_per_day REAL,
+        total_quantity INTEGER,
+        type TEXT
+    )`);
+
+    // ── Reservation Equipment Map ──────────────────────────────────────────────
+    db.run(`CREATE TABLE IF NOT EXISTS reservation_equipment (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        reservation_id INTEGER,
+        equipment_id INTEGER,
+        quantity INTEGER,
+        price_at_time REAL,
+        FOREIGN KEY(reservation_id) REFERENCES reservations(id),
+        FOREIGN KEY(equipment_id) REFERENCES event_equipment(id)
+    )`);
+
+    // ── Master Bookings (Group Bookings) ──────────────────────────────────────────────
+    db.run(`CREATE TABLE IF NOT EXISTS master_bookings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        master_event_name TEXT,
+        customer_name TEXT,
+        customer_phone TEXT,
+        status TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
     )`);
 
     // ── Inquiries Table ───────────────────────────────────────────────────────
@@ -409,7 +491,7 @@ app.get('/api/reservations/:id', async (req, res) => {
 
 // POST create reservation + update room status
 app.post('/api/reservations', async (req, res) => {
-    const { booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes, menu_selections } = req.body;
+    const { booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes, menu_selections, pax_size, function_type, event_type, package_type, meal_type, start_time, end_time, meal_time, children_count, description } = req.body;
     if (!event_name || !customer_name || !date_start) {
         return res.status(400).json({ error: 'Event name, customer name and date_start are required' });
     }
@@ -420,10 +502,35 @@ app.post('/api/reservations', async (req, res) => {
     
     const finalBookingNo = booking_no || generateBookingNo();
     try {
+        if (room_id && status === 'Confirmed') {
+            const room = await getOne("SELECT * FROM event_rooms WHERE id = ?", [room_id]);
+            if (room) {
+                const setupBuffer = room.setup_buffer_hours || 0;
+                const cleanupBuffer = room.cleanup_buffer_hours || 0;
+                const existing = await allQuery("SELECT * FROM reservations WHERE room_id = ? AND status = 'Confirmed'", [room_id]);
+                
+                for (let r of existing) {
+                    const rStart = new Date(r.date_start);
+                    const rEnd = new Date(r.date_end || r.date_start);
+                    rStart.setHours(rStart.getHours() - setupBuffer);
+                    rEnd.setHours(rEnd.getHours() + cleanupBuffer);
+                    
+                    const newStart = new Date(date_start);
+                    const newEnd = new Date(date_end || date_start);
+                    newStart.setHours(newStart.getHours() - setupBuffer);
+                    newEnd.setHours(newEnd.getHours() + cleanupBuffer);
+                    
+                    if (newStart <= rEnd && newEnd >= rStart) {
+                        return res.status(409).json({ error: 'Room unavailable: Conflicts with existing booking or required turnaround buffers.' });
+                    }
+                }
+            }
+        }
+
         const result = await runQuery(
-            `INSERT INTO reservations (booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes, menu_selections, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-            [finalBookingNo, inquiry_ref_no || null, event_name, customer_name, customer_phone, room_id || null, date_start, date_end, num_guests, status || 'Pending', total_price, notes || null, menu_selections ? JSON.stringify(menu_selections) : null]
+            `INSERT INTO reservations (booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes, menu_selections, pax_size, function_type, event_type, package_type, meal_type, start_time, end_time, meal_time, children_count, description, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+            [finalBookingNo, inquiry_ref_no || null, event_name, customer_name, customer_phone, room_id || null, date_start, date_end, num_guests, status || 'Draft', total_price, notes || null, menu_selections ? JSON.stringify(menu_selections) : null, pax_size || null, function_type || null, event_type || null, package_type || null, meal_type || null, start_time || null, end_time || null, meal_time || null, children_count || null, description || null]
         );
 
         // If confirmed, mark room as booked and seed default maintenance/buffer tasks
@@ -432,6 +539,11 @@ app.post('/api/reservations', async (req, res) => {
             await runQuery("INSERT INTO maintenance_tasks (room_id, reservation_id, task_name, status) VALUES (?, ?, 'Pre-event Venue Setup', 'Pending')", [room_id, result.lastID]);
             await runQuery("INSERT INTO maintenance_tasks (room_id, reservation_id, task_name, status) VALUES (?, ?, 'AV sound and display systems check', 'Pending')", [room_id, result.lastID]);
             await runQuery("INSERT INTO maintenance_tasks (room_id, reservation_id, task_name, status) VALUES (?, ?, 'Post-event cleaning and buffer preparation', 'Pending')", [room_id, result.lastID]);
+        } else if (status === 'Pending Finance') {
+            const msg = `New Booking #${finalBookingNo} requires finance approval.`;
+            await runQuery("INSERT INTO notifications (role, message) VALUES (?, ?)", ['finance', msg]);
+            io.emit('new_notification', { role: 'finance', message: msg });
+            io.emit('data_updated');
         }
 
         const row = await getOne(`
@@ -447,7 +559,7 @@ app.post('/api/reservations', async (req, res) => {
 
 // PUT update reservation status (confirm, cancel, etc.)
 app.put('/api/reservations/:id', async (req, res) => {
-    const { booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes, menu_selections } = req.body;
+    const { booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes, menu_selections, pax_size, function_type, event_type, package_type, meal_type, start_time, end_time, meal_time, children_count, description } = req.body;
     if (!event_name || !customer_name || !date_start) {
         return res.status(400).json({ error: 'Event name, customer name and date_start are required' });
     }
@@ -459,10 +571,35 @@ app.put('/api/reservations/:id', async (req, res) => {
         // Get old record to see if room needs to be freed
         const old = await getOne("SELECT * FROM reservations WHERE id = ?", [req.params.id]);
 
+        if (room_id && status === 'Confirmed') {
+            const room = await getOne("SELECT * FROM event_rooms WHERE id = ?", [room_id]);
+            if (room) {
+                const setupBuffer = room.setup_buffer_hours || 0;
+                const cleanupBuffer = room.cleanup_buffer_hours || 0;
+                const existing = await allQuery("SELECT * FROM reservations WHERE room_id = ? AND status = 'Confirmed' AND id != ?", [room_id, req.params.id]);
+                
+                for (let r of existing) {
+                    const rStart = new Date(r.date_start);
+                    const rEnd = new Date(r.date_end || r.date_start);
+                    rStart.setHours(rStart.getHours() - setupBuffer);
+                    rEnd.setHours(rEnd.getHours() + cleanupBuffer);
+                    
+                    const newStart = new Date(date_start);
+                    const newEnd = new Date(date_end || date_start);
+                    newStart.setHours(newStart.getHours() - setupBuffer);
+                    newEnd.setHours(newEnd.getHours() + cleanupBuffer);
+                    
+                    if (newStart <= rEnd && newEnd >= rStart) {
+                        return res.status(409).json({ error: 'Room unavailable: Conflicts with existing booking or required turnaround buffers.' });
+                    }
+                }
+            }
+        }
+
         await runQuery(
-            `UPDATE reservations SET booking_no=?, inquiry_ref_no=?, event_name=?, customer_name=?, customer_phone=?, room_id=?, date_start=?, date_end=?, num_guests=?, status=?, total_price=?, notes=?, menu_selections=?
+            `UPDATE reservations SET booking_no=?, inquiry_ref_no=?, event_name=?, customer_name=?, customer_phone=?, room_id=?, date_start=?, date_end=?, num_guests=?, status=?, total_price=?, notes=?, menu_selections=?, pax_size=?, function_type=?, event_type=?, package_type=?, meal_type=?, start_time=?, end_time=?, meal_time=?, children_count=?, description=?
              WHERE id=?`,
-            [booking_no || old.booking_no, inquiry_ref_no || old.inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes, menu_selections !== undefined ? JSON.stringify(menu_selections) : old.menu_selections, req.params.id]
+            [booking_no || old.booking_no, inquiry_ref_no || old.inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes, menu_selections !== undefined ? JSON.stringify(menu_selections) : old.menu_selections, pax_size !== undefined ? pax_size : old.pax_size, function_type !== undefined ? function_type : old.function_type, event_type !== undefined ? event_type : old.event_type, package_type !== undefined ? package_type : old.package_type, meal_type !== undefined ? meal_type : old.meal_type, start_time !== undefined ? start_time : old.start_time, end_time !== undefined ? end_time : old.end_time, meal_time !== undefined ? meal_time : old.meal_time, children_count !== undefined ? children_count : old.children_count, description !== undefined ? description : old.description, req.params.id]
         );
 
         let promoted = null;
@@ -532,6 +669,13 @@ app.patch('/api/reservations/:id/status', async (req, res) => {
             }
         }
 
+        if (status === 'Pending Finance') {
+            const msg = `Booking #${old.booking_no || old.id} requires finance approval.`;
+            await runQuery("INSERT INTO notifications (role, message) VALUES (?, ?)", ['finance', msg]);
+            io.emit('new_notification', { role: 'finance', message: msg });
+        }
+        io.emit('data_updated');
+
         const updated = await getOne(`
             SELECT r.*, e.name as room_name
             FROM reservations r LEFT JOIN event_rooms e ON r.room_id = e.id
@@ -593,17 +737,16 @@ app.get('/api/customers/:id', async (req, res) => {
     }
 });
 
-// POST create customer
 app.post('/api/customers', async (req, res) => {
-    const { name, phone, email } = req.body;
+    const { name, phone, email, customer_type, contact_person, contact_person_phone } = req.body;
     if (!name) return res.status(400).json({ error: 'Customer name is required' });
     if (!phone) return res.status(400).json({ error: 'Customer phone is required' });
     if (phone && !/^\+?[0-9\s\-\(\)]{7,15}$/.test(phone)) return res.status(400).json({ error: 'Invalid phone number format' });
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email format' });
     try {
         const result = await runQuery(
-            "INSERT INTO customers (name, phone, email, loyalty_points, total_spent) VALUES (?, ?, ?, 0, 0)",
-            [name, phone || '', email || '']
+            "INSERT INTO customers (name, phone, email, loyalty_points, total_spent, customer_type, contact_person, contact_person_phone) VALUES (?, ?, ?, 0, 0, ?, ?, ?)",
+            [name, phone || '', email || '', customer_type || 'Personal', contact_person || null, contact_person_phone || null]
         );
         const customer = await getOne("SELECT * FROM customers WHERE id = ?", [result.lastID]);
         res.status(201).json(customer);
@@ -614,15 +757,15 @@ app.post('/api/customers', async (req, res) => {
 
 // PUT update customer
 app.put('/api/customers/:id', async (req, res) => {
-    const { name, phone, email } = req.body;
+    const { name, phone, email, customer_type, contact_person, contact_person_phone } = req.body;
     if (!name) return res.status(400).json({ error: 'Customer name is required' });
     if (!phone) return res.status(400).json({ error: 'Customer phone is required' });
     if (phone && !/^\+?[0-9\s\-\(\)]{7,15}$/.test(phone)) return res.status(400).json({ error: 'Invalid phone number format' });
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email format' });
     try {
         await runQuery(
-            "UPDATE customers SET name=?, phone=?, email=? WHERE id=?",
-            [name, phone, email, req.params.id]
+            "UPDATE customers SET name=?, phone=?, email=?, customer_type=?, contact_person=?, contact_person_phone=? WHERE id=?",
+            [name, phone, email, customer_type, contact_person, contact_person_phone, req.params.id]
         );
         const customer = await getOne("SELECT * FROM customers WHERE id = ?", [req.params.id]);
         res.json(customer);
@@ -784,6 +927,222 @@ app.patch('/api/reservations/:id/signature', async (req, res) => {
         res.json({ success: true, message: 'Signature updated successfully' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
+
+// ═══════════════════════════════════════════════════════════
+// LEDGER (PAYMENTS) API
+// ═══════════════════════════════════════════════════════════
+app.get('/api/reservations/:id/ledger', async (req, res) => {
+    try {
+        const rows = await allQuery("SELECT * FROM reservation_ledger WHERE reservation_id = ? ORDER BY id ASC", [req.params.id]);
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/reservations/:id/ledger', async (req, res) => {
+    const { amount, payment_type, due_date } = req.body;
+    try {
+        const result = await runQuery(`
+            INSERT INTO reservation_ledger (reservation_id, amount, payment_type, due_date)
+            VALUES (?, ?, ?, ?)
+        `, [req.params.id, amount, payment_type, due_date || null]);
+        const entry = await getOne("SELECT * FROM reservation_ledger WHERE id = ?", [result.lastID]);
+        res.status(201).json(entry);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.patch('/api/ledger/:id/pay', async (req, res) => {
+    try {
+        await runQuery("UPDATE reservation_ledger SET status = 'Paid', paid_date = datetime('now') WHERE id = ?", [req.params.id]);
+        const entry = await getOne("SELECT * FROM reservation_ledger WHERE id = ?", [req.params.id]);
+        res.json(entry);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/reservations/:id/orders', async (req, res) => {
+    try {
+        const orders = await allQuery("SELECT * FROM orders WHERE reservation_id = ?", [req.params.id]);
+        if (orders.length === 0) return res.json([]);
+        const orderIds = orders.map(o => `'${o.id}'`).join(',');
+        const items = await allQuery(`
+            SELECT oi.*, d.name as dish_name 
+            FROM order_items oi 
+            LEFT JOIN dishes d ON oi.dish_id = d.id 
+            WHERE oi.order_id IN (${orderIds})
+        `);
+        orders.forEach(o => {
+            o.items = items.filter(i => i.order_id === o.id);
+        });
+        res.json(orders);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/reservations/:id/advance_payment', async (req, res) => {
+    const { amount } = req.body;
+    try {
+        // Insert ledger
+        await runQuery(`
+            INSERT INTO reservation_ledger (reservation_id, amount, payment_type, status, paid_date)
+            VALUES (?, ?, 'Advance Payment', 'Paid', datetime('now'))
+        `, [req.params.id, amount]);
+        // Update reservation
+        await runQuery("UPDATE reservations SET status = 'Pending Finance' WHERE id = ?", [req.params.id]);
+        
+        // Notify finance
+        const msg = `Booking #${req.params.id} has made an advance payment of ${amount}. Pending your approval.`;
+        await runQuery("INSERT INTO notifications (role, message) VALUES (?, ?)", ['finance', msg]);
+        io.emit('new_notification', { role: 'finance', message: msg });
+        io.emit('data_updated');
+
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/reservations/:id/finance_approve', async (req, res) => {
+    try {
+        const { payment_slip, amount } = req.body;
+        const old = await getOne("SELECT * FROM reservations WHERE id = ?", [req.params.id]);
+        if (!old) return res.status(404).json({ error: 'Not found' });
+        
+        await runQuery(`
+            INSERT INTO reservation_ledger (reservation_id, amount, payment_type, status, paid_date)
+            VALUES (?, ?, 'Advance Payment', 'Paid', datetime('now'))
+        `, [req.params.id, amount]);
+
+        await runQuery("UPDATE reservations SET status = 'Confirmed', payment_slip = ? WHERE id = ?", [payment_slip || null, req.params.id]);
+        
+        // Notify admin
+        const msg = `Finance team approved Booking #${old.booking_no || old.id}. Advance payment slip attached.`;
+        await runQuery("INSERT INTO notifications (role, message) VALUES (?, ?)", ['admin', msg]);
+        io.emit('new_notification', { role: 'admin', message: msg });
+        io.emit('data_updated'); // Trigger refresh across clients
+        
+        if (old.room_id) {
+            await runQuery("UPDATE event_rooms SET status = 'Booked' WHERE id = ?", [old.room_id]);
+            const existing = await allQuery("SELECT id FROM maintenance_tasks WHERE reservation_id = ?", [req.params.id]);
+            if (existing.length === 0) {
+                await runQuery("INSERT INTO maintenance_tasks (room_id, reservation_id, task_name, status) VALUES (?, ?, 'Pre-event Venue Setup', 'Pending')", [old.room_id, req.params.id]);
+                await runQuery("INSERT INTO maintenance_tasks (room_id, reservation_id, task_name, status) VALUES (?, ?, 'AV sound and display systems check', 'Pending')", [old.room_id, req.params.id]);
+                await runQuery("INSERT INTO maintenance_tasks (room_id, reservation_id, task_name, status) VALUES (?, ?, 'Post-event cleaning and buffer preparation', 'Pending')", [old.room_id, req.params.id]);
+            }
+        }
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ═══════════════════════════════════════════════════════════
+// NOTIFICATIONS API
+// ═══════════════════════════════════════════════════════════
+app.get('/api/notifications', async (req, res) => {
+    try {
+        const role = req.query.role || 'admin';
+        const notifs = await allQuery("SELECT * FROM notifications WHERE role = ? AND is_read = 0 ORDER BY created_at DESC", [role]);
+        res.json({ notifications: notifs });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/notifications/:id/mark_read', async (req, res) => {
+    try {
+        await runQuery("UPDATE notifications SET is_read = 1 WHERE id = ?", [req.params.id]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ═══════════════════════════════════════════════════════════
+// EQUIPMENT & SERVICES API
+// ═══════════════════════════════════════════════════════════
+app.get('/api/equipment', async (req, res) => {
+    try {
+        const rows = await allQuery("SELECT * FROM event_equipment ORDER BY type ASC");
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/reservations/:id/equipment', async (req, res) => {
+    try {
+        const rows = await allQuery(`
+            SELECT re.*, e.name, e.type 
+            FROM reservation_equipment re
+            JOIN event_equipment e ON re.equipment_id = e.id
+            WHERE re.reservation_id = ?
+        `, [req.params.id]);
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/reservations/:id/equipment', async (req, res) => {
+    const { equipment_id, quantity, price_at_time } = req.body;
+    try {
+        const result = await runQuery(`
+            INSERT INTO reservation_equipment (reservation_id, equipment_id, quantity, price_at_time)
+            VALUES (?, ?, ?, ?)
+        `, [req.params.id, equipment_id, quantity, price_at_time]);
+        const entry = await getOne(`
+            SELECT re.*, e.name, e.type 
+            FROM reservation_equipment re
+            JOIN event_equipment e ON re.equipment_id = e.id
+            WHERE re.id = ?
+        `, [result.lastID]);
+        res.status(201).json(entry);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ═══════════════════════════════════════════════════════════
+// MASTER BOOKINGS (GROUP BOOKINGS) API
+// ═══════════════════════════════════════════════════════════
+app.get('/api/master-bookings', async (req, res) => {
+    try {
+        const rows = await allQuery("SELECT * FROM master_bookings ORDER BY created_at DESC");
+        // For each master booking, get its reservations
+        for (let mb of rows) {
+            mb.reservations = await allQuery("SELECT r.*, e.name as room_name FROM reservations r LEFT JOIN event_rooms e ON r.room_id = e.id WHERE r.master_booking_id = ?", [mb.id]);
+        }
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/master-bookings', async (req, res) => {
+    const { master_event_name, customer_name, customer_phone, status } = req.body;
+    try {
+        const result = await runQuery(`
+            INSERT INTO master_bookings (master_event_name, customer_name, customer_phone, status)
+            VALUES (?, ?, ?, ?)
+        `, [master_event_name, customer_name, customer_phone, status || 'Pending']);
+        const mb = await getOne("SELECT * FROM master_bookings WHERE id = ?", [result.lastID]);
+        mb.reservations = [];
+        res.status(201).json(mb);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ═══════════════════════════════════════════════════════════
+// BACKGROUND CRON JOBS (Yield Management / Automated Cancel)
+// ═══════════════════════════════════════════════════════════
+setInterval(async () => {
+    try {
+        // Find pending reservations older than 48 hours
+        const oldPendings = await allQuery(`
+            SELECT id, room_id FROM reservations 
+            WHERE status = 'Pending' 
+            AND created_at < datetime('now', '-48 hours')
+        `);
+
+        for (let r of oldPendings) {
+            // Check if they paid any deposit
+            const paidDeposits = await allQuery("SELECT id FROM reservation_ledger WHERE reservation_id = ? AND status = 'Paid'", [r.id]);
+            if (paidDeposits.length === 0) {
+                // Cancel them
+                await runQuery("UPDATE reservations SET status = 'Cancelled', notes = coalesce(notes, '') || ' (Auto-cancelled: 48h timeout)' WHERE id = ?", [r.id]);
+                console.log(`Auto-cancelled reservation ${r.id} due to 48h timeout without deposit.`);
+                // Promote next in waitlist
+                if (r.room_id) {
+                    await promoteWaitlistIfAny(r.room_id);
+                }
+            }
+        }
+    } catch (err) {
+        console.error("Error in Yield Management cron:", err);
+    }
+}, 60 * 60 * 1000); // Check every hour
 
 
 // ─── Start ───────────────────────────────────────────────────────────────────

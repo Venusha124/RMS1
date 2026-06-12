@@ -140,6 +140,7 @@ function getMenuSelections(prefix) {
 
 // ─── Router ──────────────────────────────────────────────────────────────────
 const routes = {
+    '/login':     renderLogin,
     '/dashboard': renderDashboard,
     '/customers': renderCustomers,
     '/inquiry':   renderInquiry,
@@ -148,6 +149,7 @@ const routes = {
     '/rooms':     renderRooms,
     '/agreement': renderAgreement,
     '/approval':  renderApproval,
+    '/finance':   renderFinance,
     '/calendar':  renderCalendar,
     '/reports':   renderReports,
     '/payments':  renderPayments,
@@ -157,8 +159,37 @@ const routes = {
 let currentRoute = '/dashboard';
 
 function navigate(route) {
+    if (!store.data.currentUser && route !== '/login') {
+        window.location.hash = '#/login';
+        return;
+    }
+
+    if (store.data.currentUser) {
+        if (store.data.currentUser.role === 'finance' && route !== '/finance' && route !== '/login') {
+            window.location.hash = '#/finance';
+            return;
+        }
+        if (route === '/login') {
+            window.location.hash = store.data.currentUser.role === 'finance' ? '#/finance' : '#/dashboard';
+            return;
+        }
+    }
+
     if (!routes[route]) route = '/dashboard';
     currentRoute = route;
+    
+    const sidebar = document.getElementById('sidebar');
+    const topbar = document.querySelector('.topbar');
+    if (route === '/login') {
+        if (sidebar) sidebar.style.display = 'none';
+        if (topbar) topbar.style.display = 'none';
+        document.body.style.background = 'transparent'; // Let login css handle bg
+    } else {
+        if (sidebar) sidebar.style.display = 'flex';
+        if (topbar) topbar.style.display = 'flex';
+        document.body.style.background = '';
+    }
+
     document.querySelectorAll('.nav-item[data-route]').forEach(el =>
         el.classList.toggle('active', el.getAttribute('data-route') === route)
     );
@@ -170,9 +201,141 @@ function navigate(route) {
     routes[route](wrapper);
 }
 
+function renderLogin(container) {
+    if (!document.getElementById('login-css')) {
+        const link = document.createElement('link');
+        link.id = 'login-css';
+        link.rel = 'stylesheet';
+        link.href = 'assets/css/login.css'; 
+        document.head.appendChild(link);
+    }
+
+    container.innerHTML = `
+        <div class="login-layout">
+            <div class="login-card">
+                <div class="login-logo">
+                    <div class="logo-icon"><i class="fa-solid fa-hotel"></i></div>
+                    <div class="logo-text">
+                        <span class="brand-top">Ascendia</span>
+                        <span class="brand-main">Reservations</span>
+                    </div>
+                </div>
+                <form class="login-form" id="loginForm">
+                    <div class="login-error" id="loginError"></div>
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="username" placeholder="Enter your username" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="password" placeholder="Enter your password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-login">Login</button>
+                </form>
+                <div style="margin-top:24px; text-align:center; font-size:11px; color:rgba(255,255,255,0.3); letter-spacing:0.4px;">
+                    &copy; 2026 All Rights Reserved. <span style="color:rgba(0,242,254,0.5); font-weight:600;">Ascendia Solutions.</span>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const form = document.getElementById('loginForm');
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const u = document.getElementById('username');
+        const p = document.getElementById('password');
+        const errDiv = document.getElementById('loginError');
+        
+        if (!u.value.trim() || !p.value.trim()) return;
+
+        const res = await store.login(u.value.trim(), p.value);
+        if (res.success) {
+            window.location.hash = '#/dashboard';
+        } else {
+            errDiv.textContent = res.error;
+            errDiv.style.display = 'block';
+        }
+    });
+}
+
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
     await store.init();
+
+    window.addEventListener('auth_changed', () => {
+        const u = store.data.currentUser;
+        if (u) {
+            const nameEl = document.querySelector('.user-name');
+            const roleEl = document.querySelector('.user-role');
+            if (nameEl) nameEl.textContent = u.name;
+            if (roleEl) roleEl.textContent = u.role.charAt(0).toUpperCase() + u.role.slice(1);
+
+            // Handle sidebar visibility based on role
+            document.querySelectorAll('.sidebar-nav .nav-item').forEach(el => {
+                const route = el.getAttribute('data-route');
+                if (u.role === 'finance') {
+                    if (route === '/finance') {
+                        el.style.display = 'flex';
+                    } else {
+                        el.style.display = 'none';
+                    }
+                } else {
+                    el.style.display = 'flex';
+                }
+            });
+        }
+    });
+    // Trigger it on load if user is logged in
+    window.dispatchEvent(new CustomEvent('auth_changed'));
+
+    // Handle logout button
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            store.logout();
+            window.location.hash = '#/login';
+        });
+    }
+
+    // Handle notifications
+    const notifBellBtn = document.getElementById('notifBellBtn');
+    const notifDropdown = document.getElementById('notifDropdown');
+    if (notifBellBtn && notifDropdown) {
+        notifBellBtn.addEventListener('click', () => {
+            notifDropdown.style.display = notifDropdown.style.display === 'none' ? 'block' : 'none';
+        });
+        document.addEventListener('click', (e) => {
+            if (!notifBellBtn.contains(e.target) && !notifDropdown.contains(e.target)) {
+                notifDropdown.style.display = 'none';
+            }
+        });
+    }
+
+    window.addEventListener('notifications_updated', () => {
+        const notifs = store.data.notifications || [];
+        const badge = document.getElementById('notifBadge');
+        const list = document.getElementById('notifList');
+        if (!badge || !list) return;
+
+        if (notifs.length > 0) {
+            badge.textContent = notifs.length;
+            badge.style.display = 'flex';
+        } else {
+            badge.style.display = 'none';
+        }
+
+        if (notifs.length === 0) {
+            list.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:20px;">No new notifications</div>';
+        } else {
+            list.innerHTML = notifs.map(n => `
+                <div style="padding:10px; border-bottom:1px solid rgba(255,255,255,0.05); cursor:pointer;" onclick="markNotifRead(${n.id})">
+                    <div style="font-size:13px; color:var(--text-main); margin-bottom:5px;">${n.message}</div>
+                    <div style="font-size:11px; color:var(--text-muted);">${new Date(n.created_at).toLocaleString()}</div>
+                </div>
+            `).join('');
+        }
+    });
 
     window.addEventListener('hashchange', () => navigate(window.location.hash.slice(1) || '/dashboard'));
 
@@ -579,7 +742,7 @@ function viewInquiryDetail(inqOrId) {
             <div class="detail-item"><label>Preferred Venue</label><div class="detail-value">${inq.room_name || '—'}</div></div>
             <div class="detail-item"><label>Preferred Date</label><div class="detail-value">${formatDate(inq.preferred_date)}${inq.flexible_date ? ' <span style="color:var(--primary);font-size:11px;">(Flexible)</span>' : ''}</div></div>
             <div class="detail-item"><label>No. of Guests</label><div class="detail-value">${inq.num_guests || '—'}</div></div>
-            <div class="detail-item"><label>Budget</label><div class="detail-value" style="color:var(--primary);font-weight:800;">${formatCurrency(inq.budget)}</div></div>
+
             <div class="detail-item"><label>Source</label><div class="detail-value"><span class="source-badge source-${sourceClass}">${inq.source || '—'}</span></div></div>
             <div class="detail-item"><label>Assigned To</label><div class="detail-value">${inq.assigned_to || '—'}</div></div>
             <div class="detail-item"><label>Follow-up Date</label><div class="detail-value" style="${inq.follow_up_date && new Date(inq.follow_up_date) < new Date() ? 'color:#ef4444;' : ''}">${formatDate(inq.follow_up_date)}</div></div>
@@ -721,7 +884,7 @@ function renderInquiry(c) {
                         ${inq.event_type ? `<div class="inq-meta-item"><i class="fa-solid fa-champagne-glasses"></i>${inq.event_type}</div>` : ''}
                         ${inq.num_guests  ? `<div class="inq-meta-item"><i class="fa-solid fa-users"></i>${inq.num_guests} guests</div>` : ''}
                         ${inq.preferred_date ? `<div class="inq-meta-item"><i class="fa-regular fa-calendar"></i>${formatDate(inq.preferred_date)}${inq.flexible_date ? ' ±' : ''}</div>` : ''}
-                        ${inq.budget ? `<div class="inq-meta-item"><i class="fa-solid fa-coins"></i>${formatCurrency(inq.budget)}</div>` : ''}
+
                         ${inq.room_name ? `<div class="inq-meta-item"><i class="fa-solid fa-door-open"></i>${inq.room_name}</div>` : ''}
                     </div>
 
@@ -840,7 +1003,7 @@ function renderPayments(c) {
                                 </td>
                                 <td>${r.event_name} <br><span style="font-size:11px;color:var(--text-muted);">${r.room_name || ''}</span></td>
                                 <td style="font-size:13px;color:var(--text-muted);">${new Date(r.date_end || r.updated_at || r.created_at || Date.now()).toLocaleDateString()}</td>
-                                <td style="color:var(--primary);font-weight:700;">${formatCurrency(r.total_price || 0)} <span style="font-size:10px; color:#666;">(+ POS)</span></td>
+                                <td style="color:var(--primary);font-weight:700;">${formatCurrency(parseFloat(r.total_price || 0) + parseFloat(r.pos_charges || 0))} <span style="font-size:10px; color:#666;">(Includes POS charges)</span></td>
                                 <td><span style="background:rgba(16, 185, 129, 0.1); color:#10b981; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:700;"><i class="fa-solid fa-check" style="margin-right:4px;"></i>PAID</span></td>
                                 <td>
                                     <button class="btn btn-outline btn-sm" onclick="checkoutReservation(${r.id})" title="View Invoice" style="border-color:#10b981;color:#10b981;">
@@ -1006,12 +1169,37 @@ async function deleteReservation(id) {
 // ═══════════════════════════════════════════════════════════════════════════════
 let _editingCustomerId = null;
 
+function switchCustTab(type) {
+    $('custTabPersonal').classList.remove('active');
+    $('custTabCompany').classList.remove('active');
+    $('custTab' + type).classList.add('active');
+    
+    $('cust_type').value = type;
+    
+    if (type === 'Company') {
+        $('lbl_cust_name').innerText = 'Company Name';
+        $('lbl_cust_phone').innerText = 'Company Phone';
+        $('lbl_cust_email').innerText = 'Company Email';
+        $('company_fields_wrapper').style.display = 'block';
+    } else {
+        $('lbl_cust_name').innerText = 'Full Name';
+        $('lbl_cust_phone').innerText = 'Phone Number';
+        $('lbl_cust_email').innerText = 'Email Address';
+        $('company_fields_wrapper').style.display = 'none';
+    }
+}
+
 function openCustomerModal(customerOrId = null) {
     const customer = (customerOrId && typeof customerOrId !== 'object') ? store.data.customers.find(c => c.id === customerOrId) : customerOrId;
     _editingCustomerId = customer ? customer.id : null;
     $('cust_name').value  = customer ? customer.name  : '';
     $('cust_phone').value = customer ? customer.phone : '';
     $('cust_email').value = customer ? customer.email : '';
+    $('cust_contact_person').value = customer && customer.contact_person ? customer.contact_person : '';
+    $('cust_contact_phone').value = customer && customer.contact_person_phone ? customer.contact_person_phone : '';
+    
+    switchCustTab(customer && customer.customer_type ? customer.customer_type : 'Personal');
+    
     $('customerModal').querySelector('h3').innerHTML =
         `<i class="fa-solid fa-user-plus" style="color:var(--primary);margin-right:10px;"></i>${_editingCustomerId ? 'Edit Customer' : 'Register Customer'}`;
     openModal('customerModal');
@@ -1021,7 +1209,10 @@ async function submitCustomer() {
     const body = {
         name:  $('cust_name').value.trim(),
         phone: $('cust_phone').value.trim(),
-        email: $('cust_email').value.trim()
+        email: $('cust_email').value.trim(),
+        customer_type: $('cust_type').value,
+        contact_person: $('cust_contact_person').value.trim(),
+        contact_person_phone: $('cust_contact_phone').value.trim()
     };
     
     if (!body.name) { showToast('Customer name is required', 'warning'); return; }
@@ -1248,7 +1439,7 @@ function reservationTable(reservations, opts = {}) {
             <thead><tr>
                 <th>Event</th><th>Customer</th><th>Venue</th>
                 <th>Guests</th><th>From</th><th>To</th>
-                <th>Value</th><th>Status</th><th>Actions</th>
+                <th>Status</th><th>Actions</th>
             </tr></thead>
             <tbody>
              ${reservations.map(r => `
@@ -1273,10 +1464,16 @@ function reservationTable(reservations, opts = {}) {
                     <td>${r.num_guests || '—'}</td>
                     <td style="font-size:13px;color:var(--text-muted);">${formatDate(r.date_start)}</td>
                     <td style="font-size:13px;color:var(--text-muted);">${formatDate(r.date_end)}</td>
-                    <td style="color:var(--primary);font-weight:700;">${formatCurrency(r.total_price)}</td>
-                    <td>${statusBadge(r.status)}</td>
+                    <td>
+                        ${statusBadge(r.status)}
+                        ${(r.status === 'Confirmed' && r.date_start && (new Date(r.date_start) - new Date()) / (1000 * 60 * 60 * 24) <= 4 && (new Date(r.date_start) - new Date()) > 0) ? '<div style="color:#ef4444;font-size:11px;font-weight:700;margin-top:4px;"><i class="fa-solid fa-triangle-exclamation"></i> Full Payment Due</div>' : ''}
+                    </td>
                     <td>
                         <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                            ${r.status === 'Draft' ? `
+                                <button class="btn btn-primary btn-sm" onclick="updateReservationStatus(${r.id}, 'Pending Finance')" title="Send to Finance for Advance Payment" style="background:#f59e0b;color:#000;">
+                                    <i class="fa-solid fa-paper-plane"></i> Send to Finance
+                                </button>` : ''}
                             ${opts.showConfirm && r.status === 'Pending' ? `
                                 <button class="btn btn-primary btn-sm" onclick="updateReservationStatus(${r.id},'Confirmed')">
                                     <i class="fa-solid fa-check"></i>
@@ -1286,8 +1483,12 @@ function reservationTable(reservations, opts = {}) {
                                     <i class="fa-solid fa-xmark"></i>
                                 </button>` : ''}
                             ${(r.status === 'Confirmed' || r.status === 'Checked In' || r.status === 'Completed') ? `
-                                <button class="btn btn-outline btn-sm" onclick="checkoutReservation(${r.id})" title="Checkout / Invoice" style="border-color:#10b981;color:#10b981;">
-                                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                                <button class="btn btn-outline btn-sm" onclick="printAgreement(${r.id})" title="Print Agreement" style="border-color:#10b981;color:#10b981;">
+                                    <i class="fa-solid fa-file-contract"></i>
+                                </button>` : ''}
+                            ${r.payment_slip ? `
+                                <button class="btn btn-outline btn-sm" onclick="viewSlip(${r.id})" title="View Payment Slip" style="border-color:#3b82f6;color:#3b82f6;">
+                                    <i class="fa-solid fa-file-invoice"></i>
                                 </button>` : ''}
                             <button class="btn btn-outline btn-sm" onclick="openReservationModal(${r.id})" title="Edit">
                                 <i class="fa-solid fa-pen"></i>
@@ -1459,53 +1660,80 @@ function renderDashboard(c) {
     </div>`;
 }
 
+let _currentCustomerListTab = 'Personal';
+
 function renderCustomers(c) {
-    const { customers } = store.data;
-    c.innerHTML = `
-    <div class="card">
-        <div class="section-header">
-            <div>
-                <h2><i class="fa-solid fa-user-plus" style="color:var(--primary);margin-right:10px;"></i>Customer Registration</h2>
-                <p>${customers.length} customers synced from database</p>
+    const drawView = () => {
+        const { customers } = store.data;
+        const filteredCustomers = customers.filter(cu => (cu.customer_type || 'Personal') === _currentCustomerListTab);
+
+        c.innerHTML = `
+        <div class="card">
+            <div class="section-header">
+                <div>
+                    <h2><i class="fa-solid fa-user-plus" style="color:var(--primary);margin-right:10px;"></i>Customer Registration</h2>
+                    <p>${filteredCustomers.length} ${_currentCustomerListTab} customers synced from database</p>
+                </div>
+                <button class="btn btn-primary" onclick="openCustomerModal()">
+                    <i class="fa-solid fa-plus" style="margin-right:8px;"></i>Register Customer
+                </button>
             </div>
-            <button class="btn btn-primary" onclick="openCustomerModal()">
-                <i class="fa-solid fa-plus" style="margin-right:8px;"></i>Register Customer
-            </button>
-        </div>
-        <div class="table-wrapper">
-            <table class="data-table">
-                <thead><tr><th>#</th><th>Customer</th><th>Phone</th><th>Email</th><th>Loyalty</th><th>Spent</th><th>Actions</th></tr></thead>
-                <tbody>
-                    ${customers.length === 0 ? `<tr><td colspan="7"><div class="empty-state"><i class="fa-solid fa-users"></i><h3>No Customers</h3><p>Register your first customer to get started</p></div></td></tr>` : ''}
-                    ${customers.map((cu, i) => `
-                        <tr>
-                            <td style="color:var(--text-muted);font-size:12px;">${String(i+1).padStart(2,'0')}</td>
-                            <td>
-                                <div style="display:flex;align-items:center;gap:10px;">
-                                    <div style="width:34px;height:34px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--primary);font-size:14px;">${(cu.name||'?')[0].toUpperCase()}</div>
-                                    <span style="font-weight:700;">${cu.name}</span>
-                                </div>
-                            </td>
-                            <td style="color:var(--text-muted);">${cu.phone || '—'}</td>
-                            <td style="color:var(--text-muted);">${cu.email || '—'}</td>
-                            <td><span class="badge badge-info">${cu.loyalty_points || 0} pts</span></td>
-                            <td style="color:var(--primary);font-weight:700;">${formatCurrency(cu.total_spent)}</td>
-                            <td>
-                                <div style="display:flex;gap:6px;">
-                                    <button class="btn btn-outline btn-sm" onclick="openCustomerModal(${cu.id})">
-                                        <i class="fa-solid fa-pen"></i>
-                                    </button>
-                                    <button class="btn btn-danger btn-sm" onclick="deleteCustomer(${cu.id})">
-                                        <i class="fa-solid fa-trash"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
-    </div>`;
+            
+            <div class="modal-tabs" style="display:flex; gap:10px; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:20px; padding: 0 20px;">
+                <button type="button" class="filter-tab ${_currentCustomerListTab === 'Personal' ? 'active' : ''}" data-tab="Personal" style="flex:1; margin-bottom:-1px; border-bottom-left-radius:0; border-bottom-right-radius:0; border:1px solid transparent;">Personal</button>
+                <button type="button" class="filter-tab ${_currentCustomerListTab === 'Company' ? 'active' : ''}" data-tab="Company" style="flex:1; margin-bottom:-1px; border-bottom-left-radius:0; border-bottom-right-radius:0; border:1px solid transparent;">Company</button>
+            </div>
+
+            <div class="table-wrapper">
+                <table class="data-table">
+                    ${_currentCustomerListTab === 'Company' ? `
+                    <thead><tr><th>#</th><th>Company Name</th><th>Contact Person</th><th>Phone</th><th>Email</th><th>Loyalty</th><th>Actions</th></tr></thead>
+                    ` : `
+                    <thead><tr><th>#</th><th>Full Name</th><th>Phone</th><th>Email</th><th>Loyalty</th><th>Actions</th></tr></thead>
+                    `}
+                    <tbody>
+                        ${filteredCustomers.length === 0 ? `<tr><td colspan="7"><div class="empty-state"><i class="fa-solid fa-users"></i><h3>No ${_currentCustomerListTab} Customers</h3><p>Register your first customer to get started</p></div></td></tr>` : ''}
+                        ${filteredCustomers.map((cu, i) => `
+                            <tr>
+                                <td style="color:var(--text-muted);font-size:12px;">${String(i+1).padStart(2,'0')}</td>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:10px;">
+                                        <div style="width:34px;height:34px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--primary);font-size:14px;">${(cu.name||'?')[0].toUpperCase()}</div>
+                                        <span style="font-weight:700;">${cu.name}</span>
+                                    </div>
+                                </td>
+                                ${_currentCustomerListTab === 'Company' ? `
+                                <td style="color:var(--text-muted);">${cu.contact_person ? cu.contact_person + '<br><small>' + (cu.contact_person_phone || '') + '</small>' : '—'}</td>
+                                ` : ''}
+                                <td style="color:var(--text-muted);">${cu.phone || '—'}</td>
+                                <td style="color:var(--text-muted);">${cu.email || '—'}</td>
+                                <td><span class="badge badge-info">${cu.loyalty_points || 0} pts</span></td>
+                                <td>
+                                    <div style="display:flex;gap:6px;">
+                                        <button class="btn btn-outline btn-sm" onclick="openCustomerModal(${cu.id})">
+                                            <i class="fa-solid fa-pen"></i>
+                                        </button>
+                                        <button class="btn btn-danger btn-sm" onclick="deleteCustomer(${cu.id})">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+
+        c.querySelectorAll('.filter-tab').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                _currentCustomerListTab = e.currentTarget.getAttribute('data-tab');
+                drawView();
+            });
+        });
+    };
+
+    drawView();
 }
 
 
@@ -1546,8 +1774,11 @@ function renderBooking(c) {
             <div class="form-group"><label>Total Price (${sym()})</label><input id="bk_total_price" type="number" placeholder="0.00"></div>
             <div class="form-group"><label>Status</label>
                 <select id="bk_status">
-                    <option value="Pending">Pending</option>
-                    <option value="Confirmed" selected>Confirmed</option>
+                    <option value="Draft">Draft</option>
+                    <option value="Pending Finance" selected>Pending Finance</option>
+                    <option value="Confirmed">Confirmed</option>
+                    <option value="Closed">Closed</option>
+                    <option value="Cancelled">Cancelled</option>
                 </select>
             </div>
         </div>
@@ -1638,8 +1869,194 @@ function renderBooking(c) {
 }
 
 let _eventTab = 'General';
+let _eventViewState = 'list'; // 'list', 'add', 'edit'
+let _eventBuilderTab = 'General';
+
+function renderEventBuilder(c) {
+    const tabs = ['General Details', 'Venue & Room', 'Menu', 'Material', 'Event Order', 'Check List & Change', 'Event Extension', 'Payment Summary'];
+
+    let tabsHtml = tabs.map(t => {
+        const isActive = _eventBuilderTab === t;
+        return `
+            <button class="filter-tab ${isActive ? 'active' : ''}" onclick="_eventBuilderTab='${t}'; renderEventBuilder(document.getElementById('app-view'));" style="white-space:nowrap;">
+                ${t}
+            </button>
+        `;
+    }).join('');
+
+    let contentHtml = '';
+    if (_eventBuilderTab === 'General Details') {
+        contentHtml = `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px;">
+                <div class="form-group">
+                    <label>Booking No *</label>
+                    <input type="text" id="eb_booking_no" readonly style="background:rgba(255,255,255,0.05); cursor:not-allowed;" placeholder="Auto-generated">
+                </div>
+                <div class="form-group">
+                    <label>Pax Size *</label>
+                    <input type="number" id="eb_pax_size">
+                </div>
+                
+                <div class="form-group">
+                    <label>Function Type</label>
+                    <select id="eb_function_type">
+                        <option>Shareholder Meeting</option>
+                        <option>Corporate Gala</option>
+                        <option>Wedding</option>
+                        <option>Birthday Party</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Event Type *</label>
+                    <select id="eb_event_type">
+                        <option>Internal</option>
+                        <option>External</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Package Type *</label>
+                    <select id="eb_package_type">
+                        <option>Standard Package</option>
+                        <option>Premium Package</option>
+                        <option>Custom Package</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Meal Type</label>
+                    <select id="eb_meal_type">
+                        <option>Buffet</option>
+                        <option>Set Menu</option>
+                        <option>A La Carte</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Start Date</label>
+                    <input type="date" id="eb_start_date">
+                </div>
+                <div class="form-group">
+                    <label>End Date</label>
+                    <input type="date" id="eb_end_date">
+                </div>
+
+                <div class="form-group">
+                    <label>Start Time</label>
+                    <input type="time" id="eb_start_time">
+                </div>
+                <div class="form-group">
+                    <label>End Time</label>
+                    <input type="time" id="eb_end_time">
+                </div>
+
+                <div class="form-group">
+                    <label>Meal Time</label>
+                    <input type="time" id="eb_meal_time">
+                </div>
+                <div class="form-group">
+                    <label>Children Count</label>
+                    <input type="number" id="eb_children_count">
+                </div>
+
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label>Description</label>
+                    <textarea id="eb_description" rows="4" style="resize:vertical;"></textarea>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:12px;margin-top:4px;">
+                <button class="btn btn-primary" onclick="submitEventBuilder()">
+                    <i class="fa-solid fa-save" style="margin-right:8px;"></i>Save Event Details
+                </button>
+                <button class="btn btn-outline" onclick="_eventViewState='list'; navigate('/events');">
+                    <i class="fa-solid fa-rotate-left" style="margin-right:8px;"></i>Cancel
+                </button>
+            </div>
+        `;
+    } else {
+        contentHtml = `
+            <div class="empty-state" style="padding: 50px;">
+                <i class="fa-solid fa-person-digging"></i>
+                <h3>Under Construction</h3>
+                <p>Module for ${_eventBuilderTab} is under construction...</p>
+                <button class="btn btn-outline" style="margin-top:16px;" onclick="_eventViewState='list'; navigate('/events');">Go Back</button>
+            </div>
+        `;
+    }
+
+    c.innerHTML = `
+    <div class="card" style="margin-bottom:24px;">
+        <div class="section-header">
+            <div>
+                <h2><i class="fa-solid fa-calendar-plus" style="color:var(--primary);margin-right:10px;"></i>Add Event</h2>
+                <p>Event Management</p>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="_eventViewState='list'; navigate('/events');">
+                <i class="fa-solid fa-arrow-left" style="margin-right:6px;"></i>Back to List
+            </button>
+        </div>
+
+        <div class="filter-tabs" style="margin-bottom:24px; overflow-x:auto; white-space:nowrap; display:flex; gap:8px;">
+            ${tabsHtml}
+        </div>
+
+        ${contentHtml}
+    </div>
+    `;
+
+    if (_eventBuilderTab === 'General Details') {
+        if (!$('eb_booking_no').value) {
+            $('eb_booking_no').value = generateLocalBookingNo();
+        }
+    }
+}
+
+async function submitEventBuilder() {
+    const data = {
+        booking_no: $('eb_booking_no').value,
+        pax_size: parseInt($('eb_pax_size').value) || null,
+        function_type: $('eb_function_type').value,
+        event_type: $('eb_event_type').value,
+        package_type: $('eb_package_type').value,
+        meal_type: $('eb_meal_type').value,
+        date_start: $('eb_start_date').value,
+        date_end: $('eb_end_date').value,
+        start_time: $('eb_start_time').value,
+        end_time: $('eb_end_time').value,
+        meal_time: $('eb_meal_time').value,
+        children_count: parseInt($('eb_children_count').value) || null,
+        description: $('eb_description').value,
+        notes: $('eb_description').value,
+        event_name: $('eb_function_type').value || 'New Event',
+        customer_name: 'Walk-in Customer (Auto)',
+        status: 'Confirmed'
+    };
+
+    if (!data.date_start) {
+        showToast('Start Date is required!', 'error');
+        return;
+    }
+
+    try {
+        await store.fetchAPI('/reservations', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+        showToast('Event created successfully!', 'success');
+        await store.refreshData();
+        _eventViewState = 'list';
+        navigate('/events');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
 
 function renderEvents(c) {
+    if (_eventViewState === 'add') {
+        renderEventBuilder(c);
+        return;
+    }
+
     c.innerHTML = `
     <div class="card">
         <div class="section-header" style="margin-bottom: 20px;">
@@ -1647,8 +2064,8 @@ function renderEvents(c) {
                 <h2><i class="fa-solid fa-champagne-glasses" style="color:var(--primary);margin-right:10px;"></i>Event Management</h2>
                 <p>${store.data.reservations.length} events in database</p>
             </div>
-            <button class="btn btn-primary" onclick="openReservationModal()">
-                <i class="fa-solid fa-plus" style="margin-right:8px;"></i>Create Event
+            <button class="btn btn-primary" onclick="_eventViewState='add'; _eventBuilderTab='General Details'; navigate('/events');">
+                <i class="fa-solid fa-plus" style="margin-right:8px;"></i>Add Event
             </button>
         </div>
 
@@ -1910,7 +2327,7 @@ async function saveSignature() {
     }
 }
 
-function printAgreement(id) {
+async function printAgreement(id) {
     const r = store.data.reservations.find(res => res.id === id);
     if (!r) { showToast('Reservation not found', 'danger'); return; }
 
@@ -1918,6 +2335,29 @@ function printAgreement(id) {
         initSignatureCapture(id);
         return;
     }
+
+    let billRows = '';
+    let grandTotal = parseFloat(r.total_price) || 0;
+    try {
+        const res = await fetch(`/api/reservations/${id}/orders`);
+        const orders = await res.json();
+        if (orders && orders.length > 0) {
+            orders.forEach(o => {
+                if (o.items && o.items.length > 0) {
+                    o.items.forEach(item => {
+                        const itemTotal = item.price * item.qty;
+                        grandTotal += itemTotal;
+                        billRows += `
+                        <tr>
+                            <td>[Order #${o.id}] ${item.qty}x ${item.dish_name}</td>
+                            <td>${sym()}${parseFloat(item.price).toLocaleString(undefined, {minimumFractionDigits: 2})} each</td>
+                            <td style="font-weight: bold; color: #000;">${sym()}${parseFloat(itemTotal).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                        </tr>`;
+                    });
+                }
+            });
+        }
+    } catch(e) { console.error('Failed to fetch detailed bills', e); }
 
     const w = window.open('', '_blank');
     const currency = sym();
@@ -2055,6 +2495,15 @@ function printAgreement(id) {
                 </tr>
             </table>
 
+            ${r.menu_selections ? `
+            <div class="section-title">Selected Menu & Catering Details</div>
+            <div style="margin-bottom: 30px; font-size: 14px; line-height: 1.6; border: 1px solid #ddd; padding: 15px; background: #fdfdfd;">
+                ${Object.entries(typeof r.menu_selections === 'string' ? JSON.parse(r.menu_selections) : r.menu_selections).map(([cat, items]) => 
+                    `<strong style="text-transform: uppercase; font-size: 12px; color: #555;">${cat}:</strong><br>
+                     <div style="padding-left: 10px; margin-bottom: 8px;">${items.join(', ')}</div>`
+                ).join('')}
+            </div>` : ''}
+
             <div class="section-title">Billing & Financial Breakdown</div>
             <table>
                 <thead>
@@ -2069,6 +2518,11 @@ function printAgreement(id) {
                         <td>Banquet Hall / Event Room reservation for dates: ${dateFormatted} to ${dateEndFormatted}</td>
                         <td>${formatCurrency(r.price_per_day)} / day</td>
                         <td style="font-weight: bold; color: #000;">${formatCurrency(r.total_price)}</td>
+                    </tr>
+                    ${billRows}
+                    <tr>
+                        <td colspan="2" style="text-align: right; font-weight: bold; font-size: 16px;">GRAND TOTAL:</td>
+                        <td style="font-weight: bold; color: #000; font-size: 16px;">${sym()}${parseFloat(grandTotal).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                     </tr>
                 </tbody>
             </table>
@@ -2129,7 +2583,7 @@ function renderApproval(c) {
                 <p>No pending approvals at this time.</p>
                </div>`
             : `<div class="table-wrapper"><table class="data-table">
-                <thead><tr><th>Event</th><th>Customer</th><th>Venue</th><th>Guests</th><th>Value</th><th>Date</th><th>Decision</th></tr></thead>
+                <thead><tr><th>Event</th><th>Customer</th><th>Venue</th><th>Guests</th><th>Date</th><th>Decision</th></tr></thead>
                 <tbody>
                 ${pending.map(r => `
                     <tr>
@@ -2146,7 +2600,6 @@ function renderApproval(c) {
                         <td style="vertical-align:top;">${r.customer_name}<br><span style="font-size:12px;color:var(--text-muted);">${r.customer_phone || ''}</span></td>
                         <td style="vertical-align:top;color:var(--text-muted);">${r.room_name || '—'}</td>
                         <td style="vertical-align:top;">${r.num_guests || '—'}</td>
-                        <td style="vertical-align:top;color:var(--primary);font-weight:700;">${formatCurrency(r.total_price)}</td>
                         <td style="vertical-align:top;font-size:13px;color:var(--text-muted);">${formatDate(r.date_start)}</td>
                         <td style="vertical-align:top;">
                             <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -2434,6 +2887,15 @@ function renderReports(c) {
     </div>`;
 }
 
+async function markNotifRead(id) {
+    try {
+        await store.fetchAPI('/notifications/' + id + '/mark_read', { method: 'POST' });
+        await store.fetchNotifications();
+    } catch (err) {
+        console.error(err);
+    }
+}
+
 function renderSettings(c) {
     c.innerHTML = `
     <div class="card" style="margin-bottom:24px;">
@@ -2501,4 +2963,150 @@ async function saveSettings() {
     } catch (err) {
         showToast('Failed to save settings: ' + err.message, 'danger');
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FINANCE APPROVAL VIEW
+// ═══════════════════════════════════════════════════════════════════════════════
+function renderFinance(c) {
+    const pendingFinance = store.data.reservations.filter(r => r.status === 'Pending Finance');
+    c.innerHTML = `
+    <div class="header">
+        <div class="header-title">
+            <h1 class="page-title"><i class="fa-solid fa-file-invoice-dollar" style="color:var(--primary);margin-right:10px;"></i>Finance Approvals</h1>
+            <p style="color:var(--text-muted);font-size:14px;margin-top:5px;">Approve advance payments to confirm bookings.</p>
+        </div>
+    </div>
+    
+    <div class="card" style="margin-top:20px;">
+        ${pendingFinance.length === 0 ? `
+            <div class="empty-state">
+                <i class="fa-solid fa-check-double"></i>
+                <h3>All Caught Up!</h3>
+                <p>No bookings pending finance approval right now.</p>
+            </div>
+        ` : `
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead><tr><th>Ref #</th><th>Event</th><th>Customer</th><th>Dates</th><th>Total Price</th><th>Action</th></tr></thead>
+                    <tbody>
+                        ${pendingFinance.map(r => `
+                            <tr>
+                                <td><span style="font-family:monospace; color:var(--text-muted);">${r.booking_no || '—'}</span></td>
+                                <td style="font-weight:700;">${r.event_name}</td>
+                                <td>${r.customer_name}<br><small style="color:var(--text-muted)">${r.customer_phone || ''}</small></td>
+                                <td>${formatDate(r.date_start)} ${r.date_end ? 'to ' + formatDate(r.date_end) : ''}</td>
+                                <td><span style="color:var(--primary);font-weight:700;">${formatCurrency(r.total_price)}</span></td>
+                                <td>
+                                    <button class="btn btn-primary btn-sm" onclick="approveFinance(${r.id})">
+                                        <i class="fa-solid fa-check" style="margin-right:5px;"></i>Approve
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `}
+    </div>
+    `;
+}
+
+function approveFinance(id) {
+    document.getElementById('financeApproveResId').value = id;
+    document.getElementById('financePaymentSlipInput').value = '';
+    document.getElementById('financeSlipPreview').style.display = 'none';
+    document.getElementById('financeSlipImg').src = '';
+    openModal('financeApproveModal');
+}
+
+// Add event listener for slip preview
+document.addEventListener('DOMContentLoaded', () => {
+    const slipInput = document.getElementById('financePaymentSlipInput');
+    if (slipInput) {
+        slipInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    document.getElementById('financeSlipImg').src = evt.target.result;
+                    document.getElementById('financeSlipPreview').style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+});
+
+async function submitFinanceApprove() {
+    const id = document.getElementById('financeApproveResId').value;
+    const base64Image = document.getElementById('financeSlipImg').src;
+    
+    const amount = document.getElementById('financePaymentAmount').value;
+
+    if (!amount || amount <= 0) {
+        showToast('Please enter a valid advance payment amount.', 'warning');
+        return;
+    }
+    
+    if (!base64Image || base64Image === window.location.href) {
+        showToast('Please attach a payment slip before approving.', 'warning');
+        return;
+    }
+
+    try {
+        const res = await store.fetchAPI('/reservations/' + id + '/finance_approve', { 
+            method: 'POST',
+            body: JSON.stringify({ payment_slip: base64Image, amount: parseFloat(amount) })
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        
+        showToast('Booking Approved and Confirmed ✓', 'success');
+        closeModal('financeApproveModal');
+        await store.refreshData();
+        navigate('/finance');
+    } catch(err) {
+        showToast('Approval Failed: ' + err.message, 'danger');
+    }
+}
+
+async function payAdvance(id, totalPrice) {
+    const amountStr = prompt(`Enter advance payment amount (Total Price: ${formatCurrency(totalPrice)}):`);
+    if (!amountStr) return;
+    const amount = parseFloat(amountStr);
+    if (isNaN(amount) || amount <= 0) {
+        showToast('Invalid amount', 'danger');
+        return;
+    }
+    try {
+        await store.fetchAPI('/reservations/' + id + '/advance_payment', {
+            method: 'POST',
+            body: JSON.stringify({ amount })
+        });
+        showToast('Advance payment recorded. Status changed to Pending Finance ✓', 'success');
+        await store.refreshData();
+        navigate(currentRoute);
+    } catch(err) {
+        showToast('Payment Failed: ' + err.message, 'danger');
+    }
+}
+
+function viewSlip(id) {
+    const r = store.data.reservations.find(res => res.id === id);
+    if (!r) return;
+
+    const img = document.getElementById('viewSlipImg');
+    const noData = document.getElementById('viewSlipNoData');
+    
+    if (r.payment_slip) {
+        img.src = r.payment_slip;
+        img.style.display = 'block';
+        noData.style.display = 'none';
+    } else {
+        img.style.display = 'none';
+        noData.style.display = 'block';
+    }
+
+    openModal('viewSlipModal');
 }

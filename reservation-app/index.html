@@ -48,7 +48,11 @@
                 </a>
                 <a href="#/rooms" class="nav-item" data-route="/rooms">
                     <i class="fa-solid fa-door-open"></i>
-                    <span>Room Reservation</span>
+                    <span>Venues</span>
+                </a>
+                <a href="#/finance" class="nav-item" data-route="/finance">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                    <span>Finance</span>
                 </a>
                 <a href="#/agreement" class="nav-item" data-route="/agreement">
                     <i class="fa-solid fa-file-contract"></i>
@@ -78,6 +82,10 @@
                     <i class="fa-solid fa-cash-register"></i>
                     <span>Go to POS</span>
                 </a>
+                <a href="#" class="nav-item logout" id="logoutBtn" style="color: #ef4444;">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                    <span>Logout</span>
+                </a>
             </div>
         </aside>
 
@@ -93,6 +101,18 @@
                     <button class="notification-btn" id="refreshBtn" title="Refresh Data">
                         <i class="fa-solid fa-rotate-right"></i>
                     </button>
+                    <div style="position:relative;">
+                        <button class="notification-btn" id="notifBellBtn" title="Notifications">
+                            <i class="fa-solid fa-bell"></i>
+                            <span class="badge" id="notifBadge" style="display:none; position:absolute; top:-5px; right:-5px; background:#ef4444; color:#fff; border-radius:50%; width:18px; height:18px; font-size:11px; align-items:center; justify-content:center;">0</span>
+                        </button>
+                        <div id="notifDropdown" style="display:none; position:absolute; top:40px; right:0; width:300px; background:var(--glass-bg); backdrop-filter:var(--glass-blur); border:1px solid var(--glass-border); border-radius:12px; box-shadow:var(--shadow-lg); z-index:1000; overflow:hidden;">
+                            <div style="padding:15px; border-bottom:1px solid rgba(255,255,255,0.1); font-weight:700;">Notifications</div>
+                            <div id="notifList" style="max-height:300px; overflow-y:auto; padding:10px;">
+                                <!-- Notifications will be injected here -->
+                            </div>
+                        </div>
+                    </div>
                     <div class="user-profile">
                         <img src="https://ui-avatars.com/api/?name=Admin&background=00f2fe&color=000&size=38" class="avatar" alt="Admin">
                         <div class="user-info">
@@ -135,10 +155,12 @@
             <button class="modal-close" onclick="closeModal('reservationModal')"><i class="fa-solid fa-xmark"></i></button>
             <h3 style="margin-bottom:15px;"><i class="fa-solid fa-calendar-check" style="color:var(--primary); margin-right:10px;"></i><span id="reservationModalTitleText">New Reservation</span></h3>
             
-            <div class="modal-tabs" style="display:flex; gap:10px; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:20px;">
-                <button type="button" id="resTabGeneralBtn" class="filter-tab active" onclick="switchResModalTab('General')" style="margin-bottom:-1px; border-bottom-left-radius:0; border-bottom-right-radius:0; border:1px solid transparent;">General Details</button>
-                <button type="button" id="resTabMenuBtn" class="filter-tab" onclick="switchResModalTab('Menu')" style="margin-bottom:-1px; border-bottom-left-radius:0; border-bottom-right-radius:0; border:1px solid transparent;">Menu Selection</button>
-                <button type="button" id="resTabBillsBtn" class="filter-tab" onclick="switchResModalTab('Bills')" style="margin-bottom:-1px; border-bottom-left-radius:0; border-bottom-right-radius:0; border:1px solid transparent;">Restaurant Bills</button>
+            <div class="modal-tabs" style="display:flex; gap:10px; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:20px; overflow-x:auto;">
+                <button type="button" id="resTabGeneralBtn" class="filter-tab active" onclick="switchResModalTab('General')" style="margin-bottom:-1px; border-bottom-left-radius:0; border-bottom-right-radius:0; border:1px solid transparent; white-space:nowrap;">General Details</button>
+                <button type="button" id="resTabMenuBtn" class="filter-tab" onclick="switchResModalTab('Menu')" style="margin-bottom:-1px; border-bottom-left-radius:0; border-bottom-right-radius:0; border:1px solid transparent; white-space:nowrap;">Menu</button>
+                <button type="button" id="resTabEquipmentBtn" class="filter-tab" onclick="switchResModalTab('Equipment')" style="margin-bottom:-1px; border-bottom-left-radius:0; border-bottom-right-radius:0; border:1px solid transparent; white-space:nowrap;">Equipment</button>
+                <button type="button" id="resTabLedgerBtn" class="filter-tab" onclick="switchResModalTab('Ledger')" style="margin-bottom:-1px; border-bottom-left-radius:0; border-bottom-right-radius:0; border:1px solid transparent; white-space:nowrap;">Payments/Ledger</button>
+                <button type="button" id="resTabBillsBtn" class="filter-tab" onclick="switchResModalTab('Bills')" style="margin-bottom:-1px; border-bottom-left-radius:0; border-bottom-right-radius:0; border:1px solid transparent; white-space:nowrap;">Restaurant Bills</button>
             </div>
 
             <div style="flex:1; overflow-y:auto; padding-right:10px;">
@@ -204,6 +226,25 @@
                     </div>
                 </div>
 
+                <!-- Equipment Tab Content -->
+                <div id="resTabEquipmentContent" style="display:none;">
+                    <p style="font-size:12px; color:var(--text-muted); margin-bottom:15px;">Select extra equipment, AV, or staff services needed for this event.</p>
+                    <div id="res_equipment_container" class="menu-container" style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
+                        <!-- Dynamic equipment selection will go here -->
+                    </div>
+                </div>
+
+                <!-- Ledger Tab Content -->
+                <div id="resTabLedgerContent" style="display:none;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                        <h4 style="margin:0;">Payment Ledger</h4>
+                        <button class="btn btn-primary" onclick="openAddPaymentModal()" style="font-size:12px; padding:6px 12px;"><i class="fa-solid fa-plus"></i> Add Payment</button>
+                    </div>
+                    <div id="res_ledger_container" style="background: rgba(0,0,0,0.2); border-radius: 8px; overflow:hidden;">
+                        <!-- Ledger table will go here -->
+                    </div>
+                </div>
+
                 <!-- Bills Tab Content -->
                 <div id="resTabBillsContent" style="display:none;">
                     <div id="res_bills_container">
@@ -228,18 +269,38 @@
         <div class="modal-content">
             <button class="modal-close" onclick="closeModal('customerModal')"><i class="fa-solid fa-xmark"></i></button>
             <h3><i class="fa-solid fa-user-plus" style="color:var(--primary); margin-right:10px;"></i>Register Customer</h3>
+            
+            <div class="modal-tabs" style="display:flex; gap:10px; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:20px;">
+                <button type="button" id="custTabPersonal" class="filter-tab active" onclick="switchCustTab('Personal')" style="flex:1; margin-bottom:-1px; border-bottom-left-radius:0; border-bottom-right-radius:0; border:1px solid transparent;">Personal</button>
+                <button type="button" id="custTabCompany" class="filter-tab" onclick="switchCustTab('Company')" style="flex:1; margin-bottom:-1px; border-bottom-left-radius:0; border-bottom-right-radius:0; border:1px solid transparent;">Company</button>
+            </div>
+
             <div class="form-group">
-                <label>Full Name</label>
+                <label id="lbl_cust_name">Full Name</label>
                 <input type="text" id="cust_name" placeholder="e.g. Saman Perera">
             </div>
+            
+            <div id="company_fields_wrapper" style="display: none;">
+                <div class="form-group">
+                    <label>Contact Person</label>
+                    <input type="text" id="cust_contact_person" placeholder="Name of contact">
+                </div>
+                <div class="form-group">
+                    <label>Contact Person Number</label>
+                    <input type="text" id="cust_contact_phone" placeholder="+94 77 123 4567">
+                </div>
+            </div>
+
             <div class="form-group">
-                <label>Phone Number</label>
+                <label id="lbl_cust_phone">Phone Number</label>
                 <input type="text" id="cust_phone" placeholder="+94 77 123 4567">
             </div>
             <div class="form-group">
-                <label>Email Address</label>
+                <label id="lbl_cust_email">Email Address</label>
                 <input type="email" id="cust_email" placeholder="email@example.com">
             </div>
+            <input type="hidden" id="cust_type" value="Personal">
+            
             <div class="modal-actions">
                 <button class="btn btn-outline" onclick="closeModal('customerModal')">Cancel</button>
                 <button class="btn btn-primary" onclick="submitCustomer()">
@@ -289,6 +350,37 @@
                 <button class="btn btn-outline" onclick="closeModal('roomModal')">Cancel</button>
                 <button class="btn btn-primary" onclick="submitRoom()">
                     <i class="fa-solid fa-plus" style="margin-right:8px;"></i>Add Venue
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Payment Modal -->
+    <div class="modal-overlay" id="paymentModal">
+        <div class="modal-content" style="max-width: 400px;">
+            <button class="modal-close" onclick="closeModal('paymentModal')"><i class="fa-solid fa-xmark"></i></button>
+            <h3><i class="fa-solid fa-money-bill-wave" style="color:var(--primary); margin-right:10px;"></i>Add Payment</h3>
+            <input type="hidden" id="pay_reservation_id">
+            <div class="form-group">
+                <label>Amount (Rs.)</label>
+                <input type="number" id="pay_amount" placeholder="0.00">
+            </div>
+            <div class="form-group">
+                <label>Payment Type</label>
+                <select id="pay_type">
+                    <option value="Deposit">Deposit</option>
+                    <option value="Milestone">Milestone Payment</option>
+                    <option value="Final">Final Settlement</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Due Date</label>
+                <input type="date" id="pay_due_date">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="closeModal('paymentModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="submitPayment()">
+                    <i class="fa-solid fa-check" style="margin-right:8px;"></i>Save Payment
                 </button>
             </div>
         </div>
@@ -492,10 +584,51 @@
         </div>
     </div>
 
+    <!-- View Payment Slip Modal -->
+    <div class="modal-overlay" id="viewSlipModal">
+        <div class="modal-content" style="max-width: 600px; text-align: center;">
+            <button class="modal-close" onclick="closeModal('viewSlipModal')"><i class="fa-solid fa-xmark"></i></button>
+            <h2 class="modal-title"><i class="fa-solid fa-file-invoice" style="margin-right:10px; color:var(--primary);"></i>Advance Payment Slip</h2>
+            <div class="modal-body" style="padding: 20px;">
+                <img id="viewSlipImg" src="" style="max-width: 100%; max-height: 70vh; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); display: none;">
+                <p id="viewSlipNoData" style="color: var(--text-muted); display: none;">No payment slip available.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="financeApproveModal">
+        <div class="modal-content" style="max-width: 500px;">
+            <button class="modal-close" onclick="closeModal('financeApproveModal')"><i class="fa-solid fa-xmark"></i></button>
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-file-invoice-dollar" style="color:var(--primary);margin-right:8px;"></i>Attach Payment Slip</h2>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="financeApproveResId">
+                <div class="form-group">
+                    <label>Advance Payment Amount</label>
+                    <input type="number" id="financePaymentAmount" placeholder="e.g. 50000" style="width: 100%;">
+                </div>
+                <div class="form-group">
+                    <label>Upload Payment Slip (Image/PDF)</label>
+                    <input type="file" id="financePaymentSlipInput" accept="image/*,application/pdf" style="padding: 10px; background: rgba(0,0,0,0.2); border: 1px dashed rgba(255,255,255,0.2); width: 100%;">
+                    <small style="color: var(--text-muted); display: block; margin-top: 5px;">This slip will be attached to the booking and notified to Admin.</small>
+                </div>
+                <div id="financeSlipPreview" style="margin-top: 15px; display: none;">
+                    <img id="financeSlipImg" style="max-width: 100%; max-height: 200px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                </div>
+            </div>
+            <div class="modal-actions" style="margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="closeModal('financeApproveModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="submitFinanceApprove()">Confirm Approval</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification -->
     <div id="toast" class="toast" style="display:none;"></div>
 
     <!-- Scripts -->
+    <script src="/socket.io/socket.io.js"></script>
     <script src="assets/js/store.js"></script>
     <script src="assets/js/app.js"></script>
 </body>

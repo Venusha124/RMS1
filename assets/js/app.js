@@ -1895,6 +1895,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <option value="admin">Admin</option>
                                     <option value="manager">Manager</option>
                                     <option value="cashier">Cashier</option>
+                                    <option value="finance">Finance</option>
                                     <option value="waiter">Waiter</option>
                                     <option value="kitchen">Kitchen</option>
                                 </select>
