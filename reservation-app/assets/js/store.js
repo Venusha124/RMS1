@@ -10,8 +10,10 @@ const store = {
         maintenanceTasks: [],
         equipment: [],
         masterBookings: [],
+        hotelRooms: [],
+        hotelBookings: [],
         notifications: [],
-        settings: { business_name: 'IMPERIAL', currency_symbol: 'Rs.' },
+        settings: { business_name: 'ASCENDIA', currency_symbol: 'Rs.' },
         currentUser: JSON.parse(localStorage.getItem('reservationUser')) || null
     },
 
@@ -85,26 +87,31 @@ const store = {
 
     async refreshData() {
         try {
-            const [customers, eventRooms, reservations, inquiries, waitlist, maintenanceTasks, settings, equipment, masterBookings] = await Promise.all([
+            const [customers, eventRooms, reservations, inquiries, waitlist, maintenanceTasks, settings, equipment, masterBookings, hotelRooms, hotelBookings] = await Promise.all([
                 this.fetchAPI('/customers').then(r => r.json()),
                 this.fetchAPI('/event-rooms').then(r => r.json()),
                 this.fetchAPI('/reservations').then(r => r.json()),
                 this.fetchAPI('/inquiries').then(r => r.json()),
                 this.fetchAPI('/waitlist').then(r => r.json()),
                 this.fetchAPI('/maintenance-tasks').then(r => r.json()),
-                this.fetchAPI('/settings').then(r => r.json()).catch(() => ({ business_name: 'IMPERIAL', currency_symbol: 'Rs.' })),
+                this.fetchAPI('/settings').then(r => r.json()).catch(() => ({ business_name: 'ASCENDIA', currency_symbol: 'Rs.' })),
                 this.fetchAPI('/equipment').then(r => r.json()).catch(() => []),
-                this.fetchAPI('/master-bookings').then(r => r.json()).catch(() => [])
+                this.fetchAPI('/master-bookings').then(r => r.json()).catch(() => []),
+                this.fetchAPI('/hotel-rooms').then(r => r.json()).catch(() => []),
+                this.fetchAPI('/hotel-reservations').then(r => r.json()).catch(() => [])
             ]);
-            this.data.customers        = customers;
+            const sortDesc = (arr) => Array.isArray(arr) ? arr.sort((a, b) => (b.id || 0) - (a.id || 0)) : arr;
+            this.data.customers        = sortDesc(customers);
             this.data.eventRooms       = eventRooms;
-            this.data.reservations     = reservations;
-            this.data.inquiries        = inquiries;
-            this.data.waitlist         = waitlist;
-            this.data.maintenanceTasks = maintenanceTasks;
+            this.data.reservations     = sortDesc(reservations);
+            this.data.inquiries        = sortDesc(inquiries);
+            this.data.waitlist         = sortDesc(waitlist);
+            this.data.maintenanceTasks = sortDesc(maintenanceTasks);
             this.data.settings         = settings;
             this.data.equipment        = equipment;
-            this.data.masterBookings   = masterBookings;
+            this.data.masterBookings   = sortDesc(masterBookings);
+            this.data.hotelRooms       = hotelRooms;
+            this.data.hotelBookings    = sortDesc(hotelBookings);
             window.dispatchEvent(new CustomEvent('store_updated'));
         } catch (error) {
             console.error('Store refresh error:', error);

@@ -112,6 +112,11 @@ db.serialize(() => {
     db.run("ALTER TABLE reservations ADD COLUMN master_booking_id INTEGER", () => {});
     db.run("ALTER TABLE reservations ADD COLUMN payment_slip TEXT", () => {});
     db.run("ALTER TABLE inquiries ADD COLUMN menu_selections TEXT", () => {});
+    db.run("ALTER TABLE reservations ADD COLUMN additional_venues TEXT", () => {});
+    db.run("ALTER TABLE reservations ADD COLUMN materials_added TEXT", () => {});
+    db.run("ALTER TABLE reservations ADD COLUMN event_orders TEXT", () => {});
+    db.run("ALTER TABLE reservations ADD COLUMN check_list TEXT", () => {});
+    db.run("ALTER TABLE reservations ADD COLUMN event_extensions TEXT", () => {});
 
     // ── Notifications Table ──────────────────────────────────────────────────
     db.run(`CREATE TABLE IF NOT EXISTS notifications (
@@ -559,7 +564,7 @@ app.post('/api/reservations', async (req, res) => {
 
 // PUT update reservation status (confirm, cancel, etc.)
 app.put('/api/reservations/:id', async (req, res) => {
-    const { booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes, menu_selections, pax_size, function_type, event_type, package_type, meal_type, start_time, end_time, meal_time, children_count, description } = req.body;
+    const { booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes, menu_selections, pax_size, function_type, event_type, package_type, meal_type, start_time, end_time, meal_time, children_count, description, additional_venues, materials_added, event_orders, check_list, event_extensions } = req.body;
     if (!event_name || !customer_name || !date_start) {
         return res.status(400).json({ error: 'Event name, customer name and date_start are required' });
     }
@@ -597,9 +602,9 @@ app.put('/api/reservations/:id', async (req, res) => {
         }
 
         await runQuery(
-            `UPDATE reservations SET booking_no=?, inquiry_ref_no=?, event_name=?, customer_name=?, customer_phone=?, room_id=?, date_start=?, date_end=?, num_guests=?, status=?, total_price=?, notes=?, menu_selections=?, pax_size=?, function_type=?, event_type=?, package_type=?, meal_type=?, start_time=?, end_time=?, meal_time=?, children_count=?, description=?
+            `UPDATE reservations SET booking_no=?, inquiry_ref_no=?, event_name=?, customer_name=?, customer_phone=?, room_id=?, date_start=?, date_end=?, num_guests=?, status=?, total_price=?, notes=?, menu_selections=?, pax_size=?, function_type=?, event_type=?, package_type=?, meal_type=?, start_time=?, end_time=?, meal_time=?, children_count=?, description=?, additional_venues=?, materials_added=?, event_orders=?, check_list=?, event_extensions=?
              WHERE id=?`,
-            [booking_no || old.booking_no, inquiry_ref_no || old.inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes, menu_selections !== undefined ? JSON.stringify(menu_selections) : old.menu_selections, pax_size !== undefined ? pax_size : old.pax_size, function_type !== undefined ? function_type : old.function_type, event_type !== undefined ? event_type : old.event_type, package_type !== undefined ? package_type : old.package_type, meal_type !== undefined ? meal_type : old.meal_type, start_time !== undefined ? start_time : old.start_time, end_time !== undefined ? end_time : old.end_time, meal_time !== undefined ? meal_time : old.meal_time, children_count !== undefined ? children_count : old.children_count, description !== undefined ? description : old.description, req.params.id]
+            [booking_no || old.booking_no, inquiry_ref_no || old.inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes, menu_selections !== undefined ? JSON.stringify(menu_selections) : old.menu_selections, pax_size !== undefined ? pax_size : old.pax_size, function_type !== undefined ? function_type : old.function_type, event_type !== undefined ? event_type : old.event_type, package_type !== undefined ? package_type : old.package_type, meal_type !== undefined ? meal_type : old.meal_type, start_time !== undefined ? start_time : old.start_time, end_time !== undefined ? end_time : old.end_time, meal_time !== undefined ? meal_time : old.meal_time, children_count !== undefined ? children_count : old.children_count, description !== undefined ? description : old.description, additional_venues !== undefined ? JSON.stringify(additional_venues) : old.additional_venues, materials_added !== undefined ? JSON.stringify(materials_added) : old.materials_added, event_orders !== undefined ? JSON.stringify(event_orders) : old.event_orders, check_list !== undefined ? JSON.stringify(check_list) : old.check_list, event_extensions !== undefined ? JSON.stringify(event_extensions) : old.event_extensions, req.params.id]
         );
 
         let promoted = null;
@@ -1144,6 +1149,91 @@ setInterval(async () => {
     }
 }, 60 * 60 * 1000); // Check every hour
 
+
+// --- HOTEL ROOMS API ---
+app.get('/api/hotel-rooms', async (req, res) => {
+    try {
+        const rows = await allQuery("SELECT * FROM hotel_rooms");
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/hotel-rooms', async (req, res) => {
+    const { room_number, room_type, price_per_night, capacity, status } = req.body;
+    try {
+        const result = await runQuery(
+            "INSERT INTO hotel_rooms (room_number, room_type, price_per_night, capacity, status) VALUES (?, ?, ?, ?, ?)",
+            [room_number, room_type, price_per_night, capacity, status || 'Available']
+        );
+        res.json({ id: result.lastID });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/hotel-rooms/:id', async (req, res) => {
+    const { room_number, room_type, price_per_night, capacity, status } = req.body;
+    try {
+        await runQuery(
+            "UPDATE hotel_rooms SET room_number=?, room_type=?, price_per_night=?, capacity=?, status=? WHERE id=?",
+            [room_number, room_type, price_per_night, capacity, status, req.params.id]
+        );
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/hotel-rooms/:id', async (req, res) => {
+    try {
+        await runQuery("DELETE FROM hotel_rooms WHERE id = ?", [req.params.id]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- HOTEL RESERVATIONS API ---
+app.get('/api/hotel-reservations', async (req, res) => {
+    try {
+        const rows = await allQuery("SELECT * FROM hotel_reservations ORDER BY date_created DESC");
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/hotel-reservations', async (req, res) => {
+    const { booking_no, customer_name, customer_phone, hotel_room_id, check_in_date, check_out_date, num_guests, status, total_price } = req.body;
+    try {
+        await runQuery(
+            "INSERT INTO hotel_reservations (booking_no, customer_name, customer_phone, hotel_room_id, check_in_date, check_out_date, num_guests, status, total_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [booking_no, customer_name, customer_phone, hotel_room_id, check_in_date, check_out_date, num_guests, status, total_price]
+        );
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/hotel-reservations/:id', async (req, res) => {
+    const { customer_name, customer_phone, hotel_room_id, check_in_date, check_out_date, num_guests, status, total_price } = req.body;
+    try {
+        await runQuery(
+            "UPDATE hotel_reservations SET customer_name=?, customer_phone=?, hotel_room_id=?, check_in_date=?, check_out_date=?, num_guests=?, status=?, total_price=? WHERE id=?",
+            [customer_name, customer_phone, hotel_room_id, check_in_date, check_out_date, num_guests, status, total_price, req.params.id]
+        );
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/hotel-reservations/:id', async (req, res) => {
+    try {
+        await runQuery("DELETE FROM hotel_reservations WHERE id=?", [req.params.id]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- HOTEL RESERVATIONS ORDERS API ---
+app.get('/api/hotel-reservations/:id/orders', async (req, res) => {
+    try {
+        const orders = await allQuery("SELECT * FROM orders WHERE hotel_reservation_id = ?", [req.params.id]);
+        for (let o of orders) {
+            o.items = await allQuery("SELECT oi.*, d.name, d.price FROM order_items oi JOIN dishes d ON oi.dish_id = d.id WHERE oi.order_id = ?", [o.id]);
+        }
+        res.json(orders);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
 // ─── Start ───────────────────────────────────────────────────────────────────
 const PORT = 302;

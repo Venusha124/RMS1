@@ -71,7 +71,9 @@ const store = {
                 this.fetchAPI('/orders').then(r => r.json()),
                 this.fetchAPI('/customers').then(r => r.json()),
                 this.fetchAPI('/tables').then(r => r.json()),
-                this.fetchAPI('/settings').then(r => r.json())
+                this.fetchAPI('/settings').then(r => r.json()),
+                this.fetchAPI('/hotel-reservations').then(r => r.json()).catch(() => []),
+                this.fetchAPI('/hotel-rooms').then(r => r.json()).catch(() => [])
             ];
 
             // Only add restricted endpoints if admin
@@ -83,7 +85,7 @@ const store = {
                 endpoints.push(Promise.resolve([])); // Dummy audit logs
             }
 
-            const [categories, dishes, orders, customers, tables, settings, inventory, auditLogs] = await Promise.all(endpoints);
+            const [categories, dishes, orders, customers, tables, settings, hotelReservations, hotelRooms, inventory, auditLogs] = await Promise.all(endpoints);
 
             this.data.categories = categories.map(c => ({
                 ...c,
@@ -95,6 +97,8 @@ const store = {
             this.data.customers = customers;
             this.data.tables = tables;
             this.data.settings = settings;
+            this.data.hotelReservations = hotelReservations;
+            this.data.hotelRooms = hotelRooms;
             this.data.inventory = inventory;
             this.data.audit_logs = auditLogs;
             
@@ -186,7 +190,8 @@ const store = {
             paymentMethod, 
             table_id: tableId,
             customer_id: customerId,
-            reservation_id: reservationId
+            reservation_id: reservationId,
+            hotel_reservation_id: hotelReservationId
         };
 
         try {

@@ -652,6 +652,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button class="cart-action-btn" id="selectTableBtn">
                             <i class="fa-solid fa-chair"></i> Table
                         </button>
+                        <button class="cart-action-btn" id="selectHotelResBtn" style="display:none;">
+                            <i class="fa-solid fa-bed"></i> Hotel Room
+                        </button>
                         <button class="cart-action-btn" id="selectCustBtn">
                             <i class="fa-solid fa-user"></i> Customer
                         </button>
@@ -661,9 +664,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="summary-row"><span>Subtotal</span><span class="summary-subtotal">${currency}0.00</span></div>
                         <div class="summary-row"><span>Tax (10%)</span><span class="summary-tax">${currency}0.00</span></div>
                         <div class="summary-total"><span>Total</span><span class="summary-total-val">${currency}0.00</span></div>
-                        <div class="order-type-toggle">
+                        <div class="order-type-toggle" style="display:grid; grid-template-columns:1fr 1fr 1fr;">
                             <button class="type-btn active" data-type="Dine In">Dine In</button>
                             <button class="type-btn" data-type="Takeaway">Takeaway</button>
+                            <button class="type-btn" data-type="Room Service">Room Tab</button>
                         </div>
                         <button class="btn btn-primary checkout-btn"><i class="fa-solid fa-wallet"></i> Pay Now</button>
                     </div>
@@ -1084,11 +1088,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 target.classList.add('active');
                 store.data.currentOrderType = type;
                 
-                // If switching to Takeaway, clear table selection
-                if (type === 'Takeaway') {
+                const tableBtn = document.getElementById('selectTableBtn');
+                const hotelBtn = document.getElementById('selectHotelResBtn');
+                
+                if (type === 'Room Service') {
+                    if (tableBtn) tableBtn.style.display = 'none';
+                    if (hotelBtn) hotelBtn.style.display = 'flex';
                     store.data.selectedTableId = null;
-                    const btn = document.getElementById('selectTableBtn');
-                    if (btn) btn.innerHTML = `<i class="fa-solid fa-chair"></i> Table`;
+                    if (tableBtn) tableBtn.innerHTML = `<i class="fa-solid fa-chair"></i> Table`;
+                } else if (type === 'Dine In') {
+                    if (tableBtn) tableBtn.style.display = 'flex';
+                    if (hotelBtn) hotelBtn.style.display = 'none';
+                    store.data.selectedHotelResId = null;
+                    if (hotelBtn) hotelBtn.innerHTML = `<i class="fa-solid fa-bed"></i> Hotel Room`;
+                } else {
+                    if (tableBtn) tableBtn.style.display = 'none';
+                    if (hotelBtn) hotelBtn.style.display = 'none';
+                    store.data.selectedTableId = null;
+                    store.data.selectedHotelResId = null;
+                    if (tableBtn) tableBtn.innerHTML = `<i class="fa-solid fa-chair"></i> Table`;
+                    if (hotelBtn) hotelBtn.innerHTML = `<i class="fa-solid fa-bed"></i> Hotel Room`;
                 }
             }
         };
@@ -1182,7 +1201,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let resId = null;
             if (method === 'Room') {
                 resId = document.getElementById('reservationSelect').value;
-                if (!resId) return window.showToast("Please select a reservation to bill to", "error");
+                if (!resId && !store.data.selectedHotelResId) return window.showToast("Please select an event reservation or a hotel room to bill to", "error");
             }
 
             const order = await store.placeOrder(store.data.currentOrderType, method, store.data.selectedTableId, store.data.selectedCustomerId, resId, store.data.selectedHotelResId);

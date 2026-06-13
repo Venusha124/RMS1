@@ -346,6 +346,11 @@ app.post('/api/orders', async (req, res) => {
             await runQuery("UPDATE reservations SET pos_charges = pos_charges + ? WHERE id = ?", [total, reservation_id]);
         }
 
+        // 8. Update Hotel Reservation POS Charges
+        if (hotel_reservation_id) {
+            await runQuery("UPDATE hotel_reservations SET pos_charges = pos_charges + ? WHERE id = ?", [total, hotel_reservation_id]);
+        }
+
         await runQuery("COMMIT");
 
         const newOrder = { id: orderId, total, date, status: 'Preparing', order_type: orderType, items };
@@ -486,6 +491,21 @@ app.patch('/api/tables/:id/status', authorize(['admin', 'waiter', 'manager', 'ca
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
+});
+
+// --- Shared Hotel Endpoints (Read-Only for POS) ---
+app.get('/api/hotel-reservations', async (req, res) => {
+    try {
+        const rows = await allQuery("SELECT * FROM hotel_reservations ORDER BY date_created DESC");
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/hotel-rooms', async (req, res) => {
+    try {
+        const rows = await allQuery("SELECT * FROM hotel_rooms");
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // --- System Settings ---

@@ -115,11 +115,27 @@ window.handleMenuCheckboxChange = function(e) {
     const category = cb.getAttribute('data-category');
     let prefix = 'res';
     if (cb.classList.contains('inq-menu-cb')) prefix = 'inq';
+    if (cb.classList.contains('eb-menu-cb')) prefix = 'eb';
 
     const checkedCount = document.querySelectorAll(`.${prefix}-menu-cb[data-category="${category}"]:checked`).length;
     
-    if (checkedCount > 3 && cb.checked) {
-        showToast(`Warning: Selecting more than 3 items in "${category}" will require Sales Approval.`, 'warning');
+    if (prefix === 'eb') {
+        let limit = 3;
+        const pkgElem = document.getElementById('eb_package_type');
+        if (pkgElem) {
+            const pkg = pkgElem.value;
+            if (pkg === 'Standard Package') limit = 2;
+            if (pkg === 'Premium Package') limit = 3;
+            if (pkg === 'Custom Package') limit = 5;
+        }
+        if (checkedCount > limit && cb.checked) {
+            cb.checked = false;
+            showToast(`Package Limit Reached: Only ${limit} items allowed per category for this package.`, 'warning');
+        }
+    } else {
+        if (checkedCount > 3 && cb.checked) {
+            showToast(`Warning: Selecting more than 3 items in "${category}" will require Sales Approval.`, 'warning');
+        }
     }
 };
 
@@ -1063,6 +1079,10 @@ async function checkoutReservation(id) {
         $('chk_status').textContent = 'PAID';
         $('chk_status').style.color = '#10b981';
         $('markPaidCheckoutBtn').style.display = 'none';
+    } else if (res.status === 'Pending Finance') {
+        $('chk_status').textContent = 'PENDING APPROVAL';
+        $('chk_status').style.color = '#f59e0b';
+        $('markPaidCheckoutBtn').style.display = 'none';
     } else {
         $('chk_status').textContent = 'UNPAID';
         $('chk_status').style.color = '#ef4444';
@@ -1076,9 +1096,10 @@ async function checkoutReservation(id) {
     // 1. Add Room/Event Charge
     if (res.total_price) {
         subtotal += parseFloat(res.total_price);
+        const venueName = res.room_name ? `Venue: ${res.room_name}` : 'Venue Booking';
         itemsHtml += `
             <tr style="border-bottom:1px solid #eee;">
-                <td style="padding:12px;"><strong>Event/Room Charge:</strong> Venue Booking</td>
+                <td style="padding:12px;"><strong>Event / Hall Charge:</strong> ${venueName}</td>
                 <td style="padding:12px; text-align:right;">${sym()}${parseFloat(res.total_price).toFixed(2)}</td>
             </tr>
         `;
@@ -1484,14 +1505,7 @@ function reservationTable(reservations, opts = {}) {
                                 <button class="btn btn-danger btn-sm" onclick="updateReservationStatus(${r.id},'Cancelled')">
                                     <i class="fa-solid fa-xmark"></i>
                                 </button>` : ''}
-                            ${(r.status === 'Confirmed' || r.status === 'Checked In' || r.status === 'Completed') ? `
-                                <button class="btn btn-outline btn-sm" onclick="printAgreement(${r.id})" title="Print Agreement" style="border-color:#10b981;color:#10b981;">
-                                    <i class="fa-solid fa-file-contract"></i>
-                                </button>` : ''}
-                            ${r.payment_slip ? `
-                                <button class="btn btn-outline btn-sm" onclick="viewSlip(${r.id})" title="View Payment Slip" style="border-color:#3b82f6;color:#3b82f6;">
-                                    <i class="fa-solid fa-file-invoice"></i>
-                                </button>` : ''}
+
                             <button class="btn btn-outline btn-sm" onclick="openReservationModal(${r.id})" title="Edit">
                                 <i class="fa-solid fa-pen"></i>
                             </button>
@@ -1854,6 +1868,29 @@ function renderBooking(c) {
 
     if ($('bk_booking_no')) $('bk_booking_no').value = generateLocalBookingNo();
 
+    const calcPrice = () => {
+        const roomId = $('bk_room_id').value;
+        const sd = new Date($('bk_date_start').value);
+        const ed = new Date($('bk_date_end').value);
+        if (roomId) {
+            const room = store.data.eventRooms.find(r => r.id == roomId);
+            if (room) {
+                let days = 1;
+                if (!isNaN(sd.getTime()) && !isNaN(ed.getTime())) {
+                    const diffTime = ed - sd;
+                    if (diffTime >= 0) {
+                        days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Inclusive days
+                    }
+                }
+                $('bk_total_price').value = (room.price_per_day * days).toFixed(2);
+            }
+        }
+    };
+
+    if ($('bk_room_id')) $('bk_room_id').addEventListener('change', calcPrice);
+    if ($('bk_date_start')) $('bk_date_start').addEventListener('change', calcPrice);
+    if ($('bk_date_end')) $('bk_date_end').addEventListener('change', calcPrice);
+
     $('bk_inquiry_ref_no').onchange = (e) => {
         const ref = e.target.value;
         if (!ref) return;
@@ -1866,6 +1903,7 @@ function renderBooking(c) {
             if (inq.preferred_date) $('bk_date_start').value = inq.preferred_date.split('T')[0];
             if (inq.num_guests) $('bk_num_guests').value = inq.num_guests;
             if (inq.budget) $('bk_total_price').value = inq.budget;
+            calcPrice();
         }
     };
 }
@@ -1874,31 +1912,340 @@ let _eventTab = 'General';
 let _eventViewState = 'list'; // 'list', 'add', 'edit'
 let _eventBuilderTab = 'General';
 
+window._ebState = {
+    additional_venues: [],
+    materials_added: [],
+    event_orders: [],
+    check_list: [],
+    event_extensions: []
+};
+
+window.ebAddItem = function(key, nameId, priceId) {
+    const nameEl = document.getElementById(nameId);
+    const priceEl = document.getElementById(priceId);
+    if (!nameEl || !nameEl.value) return showToast('Name is required', 'error');
+    
+    _ebState[key].push({
+        name: nameEl.value,
+        price: priceEl ? (parseFloat(priceEl.value) || 0) : 0
+    });
+    
+    nameEl.value = '';
+    if (priceEl) priceEl.value = '';
+    
+    ebRenderList(key);
+    ebRenderPaymentSummary();
+};
+
+window.ebRemoveItem = function(key, index) {
+    _ebState[key].splice(index, 1);
+    ebRenderList(key);
+    ebRenderPaymentSummary();
+};
+
+window.ebRenderList = function(key) {
+    const container = document.getElementById(`eb_${key}_list`);
+    if (!container) return;
+    
+    if (_ebState[key].length === 0) {
+        container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-muted);border:1px dashed rgba(255,255,255,0.1);border-radius:8px;">No items added yet.</div>`;
+        return;
+    }
+    
+    container.innerHTML = _ebState[key].map((item, idx) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:rgba(255,255,255,0.05);border-radius:6px;margin-bottom:8px;">
+            <div><strong>${item.name}</strong></div>
+            <div style="display:flex;align-items:center;gap:16px;">
+                ${item.price !== undefined && key !== 'check_list' ? `<span style="color:var(--primary);font-weight:bold;">Rs. ${item.price.toFixed(2)}</span>` : ''}
+                <button type="button" class="btn btn-outline btn-sm btn-danger" onclick="ebRemoveItem('${key}', ${idx})"><i class="fa-solid fa-trash"></i></button>
+            </div>
+        </div>
+    `).join('');
+};
+
+window.ebRenderPaymentSummary = function() {
+    const container = document.getElementById('eb_payment_summary_content');
+    if (!container) return;
+    
+    const bookingId = document.getElementById('eb_booking_no') ? document.getElementById('eb_booking_no').value : null;
+    let basePrice = 0;
+    if (bookingId) {
+        const res = store.data.reservations.find(r => r.id == bookingId);
+        if (res) basePrice = parseFloat(res.total_price) || 0;
+    }
+
+    let summaryHtml = `<div style="display:grid;gap:12px;">
+        <div style="display:flex;justify-content:space-between;padding:12px;background:rgba(255,255,255,0.02);border-radius:6px;">
+            <span>Base Booking Price</span>
+            <strong>Rs. ${basePrice.toFixed(2)}</strong>
+        </div>
+    `;
+
+    let grandTotal = basePrice;
+
+    Object.keys(_ebState).forEach(key => {
+        if (key === 'check_list') return;
+        const subtotal = _ebState[key].reduce((sum, item) => sum + (item.price || 0), 0);
+        if (subtotal > 0) {
+            grandTotal += subtotal;
+            summaryHtml += `
+            <div style="display:flex;justify-content:space-between;padding:12px;background:rgba(255,255,255,0.02);border-radius:6px;">
+                <span style="text-transform:capitalize;">${key.replace('_', ' ')}</span>
+                <strong style="color:var(--primary);">+ Rs. ${subtotal.toFixed(2)}</strong>
+            </div>
+            `;
+        }
+    });
+
+    summaryHtml += `
+        <div style="display:flex;justify-content:space-between;padding:16px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:6px;margin-top:10px;">
+            <span style="font-size:18px;font-weight:bold;color:#10b981;">Grand Total</span>
+            <strong style="font-size:18px;color:#10b981;">Rs. ${grandTotal.toFixed(2)}</strong>
+        </div>
+    </div>`;
+
+    container.innerHTML = summaryHtml;
+};
+
+window.ebAddChecklist = function() {
+    const textEl = document.getElementById('eb_checklist_text');
+    if (!textEl || !textEl.value) return showToast('Description is required', 'error');
+    _ebState.check_list.push({ name: textEl.value });
+    textEl.value = '';
+    ebRenderList('check_list');
+    ebRenderPaymentSummary();
+};
+
+window.submitEventState = async function(key) {
+    const bookingId = document.getElementById('eb_booking_no') ? document.getElementById('eb_booking_no').value : null;
+    if (!bookingId) return showToast('Please select a booking from General Details first!', 'error');
+
+    try {
+        const payload = {};
+        payload[key] = _ebState[key];
+        
+        await store.fetchAPI(`/reservations/${bookingId}`, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+        });
+        showToast(`Saved successfully!`, 'success');
+        await store.refreshData();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+};
+
+window._ebFillBooking = function(id) {
+    if (!id) return;
+    const res = store.data.reservations.find(r => r.id == id);
+    if (res) {
+        if (document.getElementById('eb_pax_size')) document.getElementById('eb_pax_size').value = res.num_guests || '';
+        if (document.getElementById('eb_start_date')) document.getElementById('eb_start_date').value = res.date_start ? res.date_start.split('T')[0] : '';
+        if (document.getElementById('eb_end_date')) document.getElementById('eb_end_date').value = res.date_end ? res.date_end.split('T')[0] : '';
+        
+        try { _ebState.additional_venues = res.additional_venues ? JSON.parse(res.additional_venues) : []; } catch(e){}
+        try { _ebState.materials_added = res.materials_added ? JSON.parse(res.materials_added) : []; } catch(e){}
+        try { _ebState.event_orders = res.event_orders ? JSON.parse(res.event_orders) : []; } catch(e){}
+        try { _ebState.check_list = res.check_list ? JSON.parse(res.check_list) : []; } catch(e){}
+        try { _ebState.event_extensions = res.event_extensions ? JSON.parse(res.event_extensions) : []; } catch(e){}
+        
+        Object.keys(_ebState).forEach(key => ebRenderList(key));
+        ebRenderPaymentSummary();
+    }
+};
+
+window.switchEbTab = function(tab) {
+    document.querySelectorAll('.eb-tab-content').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.eb-filter-tab').forEach(btn => btn.classList.remove('active'));
+    
+    const targetId = 'eb_tab_' + tab.replace(/[^a-zA-Z]/g, '');
+    const targetEl = document.getElementById(targetId);
+    if (targetEl) targetEl.style.display = 'block';
+    
+    const btn = document.querySelector(`.eb-filter-tab[data-tab="${tab}"]`);
+    if (btn) btn.classList.add('active');
+    
+    if (tab === 'Menu') {
+        const pkg = document.getElementById('eb_package_type').value;
+        const meal = document.getElementById('eb_meal_type').value;
+        let limit = 3;
+        if (pkg === 'Standard Package') limit = 2;
+        if (pkg === 'Premium Package') limit = 3;
+        if (pkg === 'Custom Package') limit = 5;
+        document.getElementById('eb_menu_subtitle').textContent = `Package: ${pkg} | Meal Type: ${meal} | Max selections per category: ${limit}`;
+        // Re-render menu options to apply checks
+        renderMenuOptions('eb_menu_container', 'eb');
+    }
+};
+
 function renderEventBuilder(c) {
     const tabs = ['General Details', 'Venue & Room', 'Menu', 'Material', 'Event Order', 'Check List & Change', 'Event Extension', 'Payment Summary'];
 
-    let tabsHtml = tabs.map(t => {
-        const isActive = _eventBuilderTab === t;
-        return `
-            <button class="filter-tab ${isActive ? 'active' : ''}" onclick="_eventBuilderTab='${t}'; renderEventBuilder(document.getElementById('app-view'));" style="white-space:nowrap;">
-                ${t}
-            </button>
-        `;
-    }).join('');
+    let tabsHtml = tabs.map((t, idx) => `
+        <button type="button" class="filter-tab eb-filter-tab ${idx === 0 ? 'active' : ''}" data-tab="${t}" onclick="window.switchEbTab('${t}')" style="white-space:nowrap;">
+            ${t}
+        </button>
+    `).join('');
 
-    let contentHtml = '';
-    if (_eventBuilderTab === 'General Details') {
-        contentHtml = `
+    let otherTabsHtml = `
+        <div id="eb_tab_VenueRoom" class="eb-tab-content" style="display:none;">
+            <div class="section-header">
+                <div>
+                    <h3><i class="fa-solid fa-map-location-dot" style="color:var(--primary);margin-right:10px;"></i>Additional Venues & Rooms</h3>
+                    <p style="color:var(--text-muted);font-size:13px;">Add extra locations for this event.</p>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;margin-bottom:16px;align-items:end;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Venue/Room Name</label>
+                    <input type="text" id="eb_venue_name" placeholder="e.g. Garden">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Price (Rs.)</label>
+                    <input type="number" id="eb_venue_price" placeholder="e.g. 15000">
+                </div>
+                <button type="button" class="btn btn-primary" style="height:42px;" onclick="ebAddItem('additional_venues', 'eb_venue_name', 'eb_venue_price')"><i class="fa-solid fa-plus"></i> Add</button>
+            </div>
+            <div id="eb_additional_venues_list" class="eb-list-container"></div>
+            <div style="display:flex;gap:12px;margin-top:20px;">
+                <button type="button" class="btn btn-primary" onclick="submitEventState('additional_venues')"><i class="fa-solid fa-save" style="margin-right:8px;"></i>Save Venues</button>
+            </div>
+        </div>
+
+        <div id="eb_tab_Material" class="eb-tab-content" style="display:none;">
+            <div class="section-header">
+                <div>
+                    <h3><i class="fa-solid fa-boxes-stacked" style="color:var(--primary);margin-right:10px;"></i>Extra Materials</h3>
+                    <p style="color:var(--text-muted);font-size:13px;">Add extra materials like projectors, whiteboards, etc.</p>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;margin-bottom:16px;align-items:end;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Material Name</label>
+                    <input type="text" id="eb_material_name" placeholder="e.g. Projector">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Price (Rs.)</label>
+                    <input type="number" id="eb_material_price" placeholder="e.g. 5000">
+                </div>
+                <button type="button" class="btn btn-primary" style="height:42px;" onclick="ebAddItem('materials_added', 'eb_material_name', 'eb_material_price')"><i class="fa-solid fa-plus"></i> Add</button>
+            </div>
+            <div id="eb_materials_added_list" class="eb-list-container"></div>
+            <div style="display:flex;gap:12px;margin-top:20px;">
+                <button type="button" class="btn btn-primary" onclick="submitEventState('materials_added')"><i class="fa-solid fa-save" style="margin-right:8px;"></i>Save Materials</button>
+            </div>
+        </div>
+
+        <div id="eb_tab_EventOrder" class="eb-tab-content" style="display:none;">
+            <div class="section-header">
+                <div>
+                    <h3><i class="fa-solid fa-martini-glass" style="color:var(--primary);margin-right:10px;"></i>Event Orders (F&B)</h3>
+                    <p style="color:var(--text-muted);font-size:13px;">Add beverages, bites, and tobacco items.</p>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;margin-bottom:16px;align-items:end;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Item Name</label>
+                    <input type="text" id="eb_order_name" placeholder="e.g. Beer Bucket">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Price (Rs.)</label>
+                    <input type="number" id="eb_order_price" placeholder="e.g. 8000">
+                </div>
+                <button type="button" class="btn btn-primary" style="height:42px;" onclick="ebAddItem('event_orders', 'eb_order_name', 'eb_order_price')"><i class="fa-solid fa-plus"></i> Add</button>
+            </div>
+            <div id="eb_event_orders_list" class="eb-list-container"></div>
+            <div style="display:flex;gap:12px;margin-top:20px;">
+                <button type="button" class="btn btn-primary" onclick="submitEventState('event_orders')"><i class="fa-solid fa-save" style="margin-right:8px;"></i>Save Orders</button>
+            </div>
+        </div>
+
+        <div id="eb_tab_CheckListChange" class="eb-tab-content" style="display:none;">
+            <div class="section-header">
+                <div>
+                    <h3><i class="fa-solid fa-list-check" style="color:var(--primary);margin-right:10px;"></i>Check List & Changes</h3>
+                    <p style="color:var(--text-muted);font-size:13px;">Track tasks or requested changes for this event.</p>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr auto;gap:12px;margin-bottom:16px;align-items:end;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Task / Change Description</label>
+                    <input type="text" id="eb_checklist_text" placeholder="e.g. Move the buffet table">
+                </div>
+                <button type="button" class="btn btn-primary" style="height:42px;" onclick="ebAddChecklist()"><i class="fa-solid fa-plus"></i> Add</button>
+            </div>
+            <div id="eb_check_list_list" class="eb-list-container"></div>
+            <div style="display:flex;gap:12px;margin-top:20px;">
+                <button type="button" class="btn btn-primary" onclick="submitEventState('check_list')"><i class="fa-solid fa-save" style="margin-right:8px;"></i>Save Check List</button>
+            </div>
+        </div>
+
+        <div id="eb_tab_EventExtension" class="eb-tab-content" style="display:none;">
+            <div class="section-header">
+                <div>
+                    <h3><i class="fa-solid fa-clock-rotate-left" style="color:var(--primary);margin-right:10px;"></i>Event Extension</h3>
+                    <p style="color:var(--text-muted);font-size:13px;">Add extra time or overtime costs.</p>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;margin-bottom:16px;align-items:end;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Extension Details</label>
+                    <input type="text" id="eb_extension_name" placeholder="e.g. 2 Extra Hours">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Price (Rs.)</label>
+                    <input type="number" id="eb_extension_price" placeholder="e.g. 20000">
+                </div>
+                <button type="button" class="btn btn-primary" style="height:42px;" onclick="ebAddItem('event_extensions', 'eb_extension_name', 'eb_extension_price')"><i class="fa-solid fa-plus"></i> Add</button>
+            </div>
+            <div id="eb_event_extensions_list" class="eb-list-container"></div>
+            <div style="display:flex;gap:12px;margin-top:20px;">
+                <button type="button" class="btn btn-primary" onclick="submitEventState('event_extensions')"><i class="fa-solid fa-save" style="margin-right:8px;"></i>Save Extensions</button>
+            </div>
+        </div>
+
+        <div id="eb_tab_PaymentSummary" class="eb-tab-content" style="display:none;">
+            <div class="section-header">
+                <div>
+                    <h3><i class="fa-solid fa-file-invoice-dollar" style="color:var(--primary);margin-right:10px;"></i>Payment Summary</h3>
+                    <p style="color:var(--text-muted);font-size:13px;">Breakdown of all event charges.</p>
+                </div>
+            </div>
+            <div id="eb_payment_summary_content" style="margin-top:20px;"></div>
+        </div>
+    `;
+
+    c.innerHTML = `
+    <div class="card" style="margin-bottom:24px;">
+        <div class="section-header">
+            <div>
+                <h2><i class="fa-solid fa-calendar-plus" style="color:var(--primary);margin-right:10px;"></i>Add Event</h2>
+                <p>Event Management</p>
+            </div>
+            <button type="button" class="btn btn-outline btn-sm" onclick="_eventViewState='list'; navigate('/events');">
+                <i class="fa-solid fa-arrow-left" style="margin-right:6px;"></i>Back to List
+            </button>
+        </div>
+
+        <div class="filter-tabs" style="margin-bottom:24px; overflow-x:auto; white-space:nowrap; display:flex; gap:8px;">
+            ${tabsHtml}
+        </div>
+
+        <div id="eb_tab_GeneralDetails" class="eb-tab-content" style="display:block;">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px;">
                 <div class="form-group">
                     <label>Booking No *</label>
-                    <input type="text" id="eb_booking_no" readonly style="background:rgba(255,255,255,0.05); cursor:not-allowed;" placeholder="Auto-generated">
+                    <select id="eb_booking_no" onchange="window._ebFillBooking(this.value)">
+                        <option value="">-- Select Confirmed Booking --</option>
+                        ${store.data.reservations.filter(r => r.status === 'Confirmed' || r.status === 'Checked In').map(r => `
+                            <option value="${r.id}">${r.booking_no || 'BKG-'+String(r.id).padStart(4,'0')} (${r.event_name})</option>
+                        `).join('')}
+                    </select>
                 </div>
                 <div class="form-group">
                     <label>Pax Size *</label>
                     <input type="number" id="eb_pax_size">
                 </div>
-                
                 <div class="form-group">
                     <label>Function Type</label>
                     <select id="eb_function_type">
@@ -1915,7 +2262,6 @@ function renderEventBuilder(c) {
                         <option>External</option>
                     </select>
                 </div>
-
                 <div class="form-group">
                     <label>Package Type *</label>
                     <select id="eb_package_type">
@@ -1932,7 +2278,6 @@ function renderEventBuilder(c) {
                         <option>A La Carte</option>
                     </select>
                 </div>
-
                 <div class="form-group">
                     <label>Start Date</label>
                     <input type="date" id="eb_start_date">
@@ -1941,7 +2286,6 @@ function renderEventBuilder(c) {
                     <label>End Date</label>
                     <input type="date" id="eb_end_date">
                 </div>
-
                 <div class="form-group">
                     <label>Start Time</label>
                     <input type="time" id="eb_start_time">
@@ -1950,7 +2294,6 @@ function renderEventBuilder(c) {
                     <label>End Time</label>
                     <input type="time" id="eb_end_time">
                 </div>
-
                 <div class="form-group">
                     <label>Meal Time</label>
                     <input type="time" id="eb_meal_time">
@@ -1959,63 +2302,63 @@ function renderEventBuilder(c) {
                     <label>Children Count</label>
                     <input type="number" id="eb_children_count">
                 </div>
-
                 <div class="form-group" style="grid-column: 1 / -1;">
                     <label>Description</label>
                     <textarea id="eb_description" rows="4" style="resize:vertical;"></textarea>
                 </div>
             </div>
-
             <div style="display:flex;gap:12px;margin-top:4px;">
-                <button class="btn btn-primary" onclick="submitEventBuilder()">
+                <button type="button" class="btn btn-primary" onclick="submitEventBuilder()">
                     <i class="fa-solid fa-save" style="margin-right:8px;"></i>Save Event Details
                 </button>
-                <button class="btn btn-outline" onclick="_eventViewState='list'; navigate('/events');">
-                    <i class="fa-solid fa-rotate-left" style="margin-right:8px;"></i>Cancel
+            </div>
+        </div>
+
+        <div id="eb_tab_Menu" class="eb-tab-content" style="display:none;">
+            <div class="section-header">
+                <div>
+                    <h3><i class="fa-solid fa-utensils" style="color:var(--primary);margin-right:10px;"></i>Event Menu Selection</h3>
+                    <p id="eb_menu_subtitle" style="color:var(--text-muted);font-size:13px;"></p>
+                </div>
+            </div>
+            <div id="eb_menu_container" style="margin-top:10px;"></div>
+            <div style="display:flex;gap:12px;margin-top:20px;">
+                <button type="button" class="btn btn-primary" onclick="submitEventMenu()">
+                    <i class="fa-solid fa-save" style="margin-right:8px;"></i>Save Menu Details
                 </button>
             </div>
-        `;
-    } else {
-        contentHtml = `
-            <div class="empty-state" style="padding: 50px;">
-                <i class="fa-solid fa-person-digging"></i>
-                <h3>Under Construction</h3>
-                <p>Module for ${_eventBuilderTab} is under construction...</p>
-                <button class="btn btn-outline" style="margin-top:16px;" onclick="_eventViewState='list'; navigate('/events');">Go Back</button>
-            </div>
-        `;
-    }
-
-    c.innerHTML = `
-    <div class="card" style="margin-bottom:24px;">
-        <div class="section-header">
-            <div>
-                <h2><i class="fa-solid fa-calendar-plus" style="color:var(--primary);margin-right:10px;"></i>Add Event</h2>
-                <p>Event Management</p>
-            </div>
-            <button class="btn btn-outline btn-sm" onclick="_eventViewState='list'; navigate('/events');">
-                <i class="fa-solid fa-arrow-left" style="margin-right:6px;"></i>Back to List
-            </button>
         </div>
 
-        <div class="filter-tabs" style="margin-bottom:24px; overflow-x:auto; white-space:nowrap; display:flex; gap:8px;">
-            ${tabsHtml}
-        </div>
-
-        ${contentHtml}
+        ${otherTabsHtml}
     </div>
     `;
+}
 
-    if (_eventBuilderTab === 'General Details') {
-        if (!$('eb_booking_no').value) {
-            $('eb_booking_no').value = generateLocalBookingNo();
-        }
+async function submitEventMenu() {
+    const bookingId = document.getElementById('eb_booking_no') ? document.getElementById('eb_booking_no').value : null;
+    if (!bookingId) {
+        showToast('Please select a booking from General Details first!', 'error');
+        return;
+    }
+    const selections = getMenuSelections('eb');
+    try {
+        await store.fetchAPI(`/reservations/${bookingId}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                menu_selections: JSON.stringify(selections.menu_selections || {})
+            })
+        });
+        showToast('Menu saved successfully!', 'success');
+        await store.refreshData();
+    } catch (err) {
+        showToast(err.message, 'error');
     }
 }
 
 async function submitEventBuilder() {
+    const bookingId = $('eb_booking_no') ? $('eb_booking_no').value : null;
+
     const data = {
-        booking_no: $('eb_booking_no').value,
         pax_size: parseInt($('eb_pax_size').value) || null,
         function_type: $('eb_function_type').value,
         event_type: $('eb_event_type').value,
@@ -2029,9 +2372,7 @@ async function submitEventBuilder() {
         children_count: parseInt($('eb_children_count').value) || null,
         description: $('eb_description').value,
         notes: $('eb_description').value,
-        event_name: $('eb_function_type').value || 'New Event',
-        customer_name: 'Walk-in Customer (Auto)',
-        status: 'Confirmed'
+        event_name: $('eb_function_type').value || 'New Event'
     };
 
     if (!data.date_start) {
@@ -2040,11 +2381,19 @@ async function submitEventBuilder() {
     }
 
     try {
-        await store.fetchAPI('/reservations', {
-            method: 'POST',
+        const method = (bookingId && !isNaN(parseInt(bookingId))) ? 'PUT' : 'POST';
+        const url = (bookingId && !isNaN(parseInt(bookingId))) ? `/reservations/${bookingId}` : '/reservations';
+
+        if (method === 'POST') {
+            data.customer_name = 'Walk-in Customer (Auto)';
+            data.status = 'Confirmed';
+        }
+
+        await store.fetchAPI(url, {
+            method: method,
             body: JSON.stringify(data)
         });
-        showToast('Event created successfully!', 'success');
+        showToast('Event saved successfully!', 'success');
         await store.refreshData();
         _eventViewState = 'list';
         navigate('/events');
@@ -2966,20 +3315,22 @@ async function saveSettings() {
 // ═══════════════════════════════════════════════════════════════════════════════
 function renderFinance(c) {
     const pendingFinance = store.data.reservations.filter(r => r.status === 'Pending Finance');
+    const pendingHotelCheckouts = (store.data.hotelBookings || []).filter(r => r.status === 'Pending Checkout');
+    
     c.innerHTML = `
     <div class="header">
         <div class="header-title">
             <h1 class="page-title"><i class="fa-solid fa-file-invoice-dollar" style="color:var(--primary);margin-right:10px;"></i>Finance Approvals</h1>
-            <p style="color:var(--text-muted);font-size:14px;margin-top:5px;">Approve advance payments to confirm bookings.</p>
+            <p style="color:var(--text-muted);font-size:14px;margin-top:5px;">Approve advance payments and hotel checkouts.</p>
         </div>
     </div>
     
-    <div class="card" style="margin-top:20px;">
+    <h3 style="margin-top: 20px;">Event Advance Approvals</h3>
+    <div class="card" style="margin-top:10px;">
         ${pendingFinance.length === 0 ? `
             <div class="empty-state">
                 <i class="fa-solid fa-check-double"></i>
-                <h3>All Caught Up!</h3>
-                <p>No bookings pending finance approval right now.</p>
+                <p>No events pending finance approval right now.</p>
             </div>
         ` : `
             <div class="table-wrapper">
@@ -2994,6 +3345,9 @@ function renderFinance(c) {
                                 <td>${formatDate(r.date_start)} ${r.date_end ? 'to ' + formatDate(r.date_end) : ''}</td>
                                 <td><span style="color:var(--primary);font-weight:700;">${formatCurrency(r.total_price)}</span></td>
                                 <td>
+                                    <button class="btn btn-outline btn-sm" onclick="checkoutReservation(${r.id})" style="border-color:#10b981; color:#10b981; margin-right:5px;" title="View Receipt">
+                                        <i class="fa-solid fa-file-invoice"></i> Receipt
+                                    </button>
                                     <button class="btn btn-primary btn-sm" onclick="approveFinance(${r.id})">
                                         <i class="fa-solid fa-check" style="margin-right:5px;"></i>Approve
                                     </button>
@@ -3005,7 +3359,74 @@ function renderFinance(c) {
             </div>
         `}
     </div>
+
+    <h3 style="margin-top: 30px;">Hotel Checkouts Pending Approval</h3>
+    <div class="card" style="margin-top:10px;">
+        ${pendingHotelCheckouts.length === 0 ? `
+            <div class="empty-state">
+                <i class="fa-solid fa-check-double"></i>
+                <p>No hotel checkouts pending approval.</p>
+            </div>
+        ` : `
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead><tr><th>Booking #</th><th>Customer</th><th>Room</th><th>Check-out</th><th>Total Price</th><th>Action</th></tr></thead>
+                    <tbody>
+                        ${pendingHotelCheckouts.map(r => {
+                            const room = (store.data.hotelRooms || []).find(rm => rm.id == r.hotel_room_id);
+                            return `
+                            <tr>
+                                <td><span style="font-family:monospace; color:var(--text-muted);">${r.booking_no || '—'}</span></td>
+                                <td style="font-weight:700;">${r.customer_name}<br><small style="color:var(--text-muted)">${r.customer_phone || ''}</small></td>
+                                <td>Room ${room ? room.room_number : 'N/A'}</td>
+                                <td>${r.check_out_date}</td>
+                                <td><span style="color:var(--primary);font-weight:700;">${formatCurrency(r.total_price)}</span></td>
+                                <td>
+                                    <button class="btn btn-success btn-sm" onclick="approveHotelCheckout(${r.id})">
+                                        <i class="fa-solid fa-check-double" style="margin-right:5px;"></i>Finalize Checkout
+                                    </button>
+                                </td>
+                            </tr>
+                        `}).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `}
+    </div>
     `;
+}
+
+window.approveHotelCheckout = function(id) {
+    showConfirmModal("Approve this checkout and mark the room as available?", async () => {
+        try {
+            const booking = store.data.hotelBookings.find(b => b.id == id);
+            booking.status = 'Checked Out';
+            
+            // 1. Update Booking Status
+            const res = await store.fetchAPI(`/hotel-reservations/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify(booking)
+            });
+            if (!res.ok) throw new Error("Failed to update booking status");
+
+            // 2. Update Room Status to Available
+            const room = (store.data.hotelRooms || []).find(r => r.id == booking.hotel_room_id);
+            if (room) {
+                room.status = 'Available';
+                const roomRes = await store.fetchAPI(`/hotel-rooms/${room.id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(room)
+                });
+                if (!roomRes.ok) throw new Error("Failed to update room status");
+            }
+
+            showToast("Hotel Checkout Approved Successfully!", "success");
+            await store.refreshData();
+            navigate('/finance');
+        } catch (err) {
+            showToast(err.message, "error");
+        }
+    });
 }
 
 function approveFinance(id) {
@@ -3260,7 +3681,7 @@ function renderHotelBookings(container) {
                 <td style="padding: 12px;">${roomName}</td>
                 <td style="padding: 12px;">${b.check_in_date} to ${b.check_out_date}</td>
                 <td style="padding: 12px;">${b.status}</td>
-                <td style="padding: 12px;">${(b.total_price || 0).toFixed(2)}</td>
+                <td style="padding: 12px;">${formatCurrency(b.total_price)}</td>
                 <td style="padding: 12px;">
                     <button class="btn btn-outline btn-sm edit-hb-btn" data-id="${b.id}">Edit</button>
                     <button class="btn btn-outline btn-sm checkout-hb-btn" data-id="${b.id}" style="border-color:#10b981; color:#10b981; margin-left:5px;"><i class="fa-solid fa-file-invoice"></i> Checkout</button>
@@ -3312,9 +3733,35 @@ async function openHotelBookingModal(id = null) {
 
     // Populate rooms
     const roomSelect = document.getElementById('hbRoom');
+    const checkInInput = document.getElementById('hbCheckIn');
+    const checkOutInput = document.getElementById('hbCheckOut');
+    const totalPriceInput = document.getElementById('hbTotalPrice');
+
     roomSelect.innerHTML = '<option value="">Select Room</option>' + availableRooms.map(r => 
         `<option value="${r.id}">${r.room_number} (${r.room_type})</option>`
     ).join('');
+
+    const calculateRoomPrice = () => {
+        const roomId = roomSelect.value;
+        const checkIn = new Date(checkInInput.value);
+        const checkOut = new Date(checkOutInput.value);
+        if (roomId) {
+            const selectedRoom = availableRooms.find(r => r.id == roomId);
+            if (selectedRoom) {
+                let nights = 1;
+                if (!isNaN(checkIn.getTime()) && !isNaN(checkOut.getTime())) {
+                    const diffTime = checkOut - checkIn;
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    if (diffDays > 0) nights = diffDays;
+                }
+                totalPriceInput.value = (selectedRoom.price_per_night * nights).toFixed(2);
+            }
+        }
+    };
+
+    roomSelect.onchange = calculateRoomPrice;
+    checkInInput.onchange = calculateRoomPrice;
+    checkOutInput.onchange = calculateRoomPrice;
 
     const billsTabBtn = document.getElementById('hotelBillsTabBtn');
     const billsList = document.getElementById('hotelRestaurantBillsList');
@@ -3338,7 +3785,7 @@ async function openHotelBookingModal(id = null) {
         billsTabBtn.style.display = 'block';
 
         try {
-            const res = await store.fetchAPI(`/api/hotel-reservations/${id}/orders`);
+            const res = await store.fetchAPI(`/hotel-reservations/${id}/orders`);
             const orders = await res.json();
             if (orders && orders.length > 0) {
                 let total = 0;
@@ -3405,11 +3852,33 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             try {
-                const res = await store.fetchAPI(id ? `/api/hotel-reservations/${id}` : '/api/hotel-reservations', {
+                const res = await store.fetchAPI(id ? `/hotel-reservations/${id}` : '/hotel-reservations', {
                     method: id ? 'PUT' : 'POST',
                     body: JSON.stringify(payload)
                 });
                 if (!res.ok) throw new Error("Failed to save booking");
+
+                if (id) {
+                    const oldBooking = store.data.hotelBookings.find(b => b.id == id);
+                    if (oldBooking && oldBooking.hotel_room_id != payload.hotel_room_id) {
+                        const oldRoom = (store.data.hotelRooms || []).find(r => r.id == oldBooking.hotel_room_id);
+                        if (oldRoom) {
+                            oldRoom.status = 'Available';
+                            await store.fetchAPI(`/hotel-rooms/${oldRoom.id}`, {
+                                method: 'PUT', body: JSON.stringify(oldRoom)
+                            });
+                        }
+                    }
+                }
+
+                const roomToUpdate = (store.data.hotelRooms || []).find(r => r.id == payload.hotel_room_id);
+                if (roomToUpdate) {
+                    roomToUpdate.status = (payload.status === 'Cancelled' || payload.status === 'Checked Out') ? 'Available' : 'Booked';
+                    await store.fetchAPI(`/hotel-rooms/${roomToUpdate.id}`, {
+                        method: 'PUT', body: JSON.stringify(roomToUpdate)
+                    });
+                }
+
                 showToast("Booking saved successfully!", "success");
                 document.getElementById('hotelBookingModal').style.display = 'none';
                 await store.refreshData();
@@ -3451,7 +3920,7 @@ async function checkoutHotelBooking(id) {
     
     let posTotal = 0;
     try {
-        const res = await store.fetchAPI(`/api/hotel-reservations/${id}/orders`);
+        const res = await store.fetchAPI(`/hotel-reservations/${id}/orders`);
         const orders = await res.json();
         if (orders && orders.length > 0) {
             orders.forEach(o => {
@@ -3480,30 +3949,92 @@ async function checkoutHotelBooking(id) {
     document.getElementById('hotelCheckoutModal').style.display = 'flex';
 }
 
-async function finalizeHotelCheckout(id) {
-    if (!confirm('Are you sure you want to mark this booking as Checked Out?')) return;
-    
-    try {
-        // Fetch current booking to do a full PUT
-        const booking = store.data.hotelBookings.find(b => b.id == id);
-        booking.status = 'Checked Out';
-        
-        const res = await store.fetchAPI(`/api/hotel-reservations/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify(booking)
-        });
-        
-        if (!res.ok) throw new Error("Failed to checkout");
-        
-        showToast('Booking Checked Out Successfully!', 'success');
-        document.getElementById('hchk_status').textContent = 'Checked Out';
-        document.getElementById('hchk_status').style.color = '#10b981';
-        document.getElementById('markHotelPaidBtn').style.display = 'none';
-        
-        await store.refreshData();
-    } catch (err) {
-        showToast('Error finalizing checkout: ' + err.message, 'error');
-    }
+function finalizeHotelCheckout(id) {
+    showConfirmModal('Send this checkout to Finance for approval?', async () => {
+        try {
+            // Fetch current booking to do a full PUT
+            const booking = store.data.hotelBookings.find(b => b.id == id);
+            booking.status = 'Pending Checkout';
+            
+            const res = await store.fetchAPI(`/hotel-reservations/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify(booking)
+            });
+            
+            if (!res.ok) throw new Error("Failed to send to finance");
+            
+            showToast('Sent to Finance for Approval!', 'success');
+            document.getElementById('hchk_status').textContent = 'Pending Checkout';
+            document.getElementById('hchk_status').style.color = '#f59e0b';
+            document.getElementById('markHotelPaidBtn').style.display = 'none';
+            
+            await store.refreshData();
+        } catch (err) {
+            showToast('Error sending to finance: ' + err.message, 'error');
+        }
+    });
+}
+
+window.showConfirmModal = function(message, onConfirm) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100vw';
+    overlay.style.height = '100vh';
+    overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    overlay.style.zIndex = '9999';
+
+    const modal = document.createElement('div');
+    modal.className = 'card';
+    modal.style.padding = '32px';
+    modal.style.maxWidth = '400px';
+    modal.style.width = '100%';
+    modal.style.textAlign = 'center';
+    modal.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+    modal.style.animation = 'fadeIn 0.2s ease-out';
+
+    const icon = document.createElement('i');
+    icon.className = 'fa-solid fa-circle-question';
+    icon.style.fontSize = '48px';
+    icon.style.color = 'var(--primary)';
+    icon.style.marginBottom = '16px';
+
+    const text = document.createElement('h3');
+    text.textContent = message;
+    text.style.marginBottom = '24px';
+    text.style.color = 'var(--text-color)';
+
+    const btnContainer = document.createElement('div');
+    btnContainer.style.display = 'flex';
+    btnContainer.style.gap = '12px';
+    btnContainer.style.justifyContent = 'center';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn btn-outline';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.onclick = () => document.body.removeChild(overlay);
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'btn btn-primary';
+    confirmBtn.textContent = 'Confirm';
+    confirmBtn.onclick = () => {
+        document.body.removeChild(overlay);
+        onConfirm();
+    };
+
+    btnContainer.appendChild(cancelBtn);
+    btnContainer.appendChild(confirmBtn);
+
+    modal.appendChild(icon);
+    modal.appendChild(text);
+    modal.appendChild(btnContainer);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
 }
 
 function printHotelCheckoutInvoice() {
