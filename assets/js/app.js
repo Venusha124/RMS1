@@ -915,6 +915,48 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('closeTableModal').onclick = () => modal.remove();
             }
 
+            
+            // Hotel Reservation Selection
+            if (target.id === 'selectHotelResBtn') {
+                const hotelRes = (store.data.hotelReservations || []).filter(r => r.status === 'Checked In' || r.status === 'Confirmed');
+                const modal = document.createElement('div');
+                modal.className = 'modal-overlay';
+                modal.style.display = 'flex';
+                modal.innerHTML = `
+                    <div class="modal-content" style="width: 500px;">
+                        <h3>Select Hotel Room Booking</h3>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 15px 0;">
+                            ${hotelRes.map(t => {
+                                const room = (store.data.hotelRooms || []).find(r => r.id == t.hotel_room_id);
+                                return `<div class="table-card" data-id="${t.id}" style="padding:15px; border:1px solid var(--glass-border); border-radius:12px; cursor:pointer; text-align:center; background:rgba(255,255,255,0.05); transition:background 0.2s;">
+                                    <div style="font-weight:bold; color:var(--text-main); margin-bottom:5px;">Room ${room ? room.room_number : 'N/A'}</div>
+                                    <div style="font-size:11px; font-weight:600; color:var(--primary);">${t.customer_name}</div>
+                                </div>`;
+                            }).join('')}
+                        </div>
+                        <div class="modal-actions"><button class="btn btn-outline" id="closeHotelResModal" style="width:100%;">Cancel</button></div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                modal.querySelectorAll('.table-card').forEach(card => {
+                    card.onclick = () => {
+                        const id = card.getAttribute('data-id');
+                        store.data.selectedHotelResId = id;
+                        const btn = document.getElementById('selectHotelResBtn');
+                        const h = hotelRes.find(x => x.id == id);
+                        if (btn) btn.innerHTML = `<i class="fa-solid fa-bed"></i> Room ${h.customer_name.split(' ')[0]}`;
+                        
+                        // Automatically select customer if possible
+                        store.data.selectedCustomerId = h.customer_name; // We could search customer DB, but let's just set the name for now
+                        const custBtn = document.getElementById('selectCustBtn');
+                        if(custBtn) custBtn.innerHTML = `<i class="fa-solid fa-user"></i> ${h.customer_name}`;
+                        
+                        modal.remove();
+                    };
+                });
+                document.getElementById('closeHotelResModal').onclick = () => modal.remove();
+            }
+    
             // Customer Selection Button
             if (target.id === 'selectCustBtn') {
                 const customers = store.data.customers;
@@ -1020,6 +1062,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (target.classList.contains('checkout-btn')) {
                 if (store.data.cart.length === 0) return window.showToast("Cart is empty", "warning");
                 if (store.data.currentOrderType === 'Dine In' && !store.data.selectedTableId) return window.showToast("Select Table", "error");
+                if (store.data.currentOrderType === 'Room Service' && !store.data.selectedHotelResId) return window.showToast("Select Hotel Room", "error");
                 if (!store.data.selectedCustomerId) return window.showToast("Select Customer", "error");
                 
                 document.getElementById('paymentModalTotal').textContent = document.querySelector('.summary-total-val').textContent;
@@ -1142,7 +1185,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!resId) return window.showToast("Please select a reservation to bill to", "error");
             }
 
-            const order = await store.placeOrder(store.data.currentOrderType, method, store.data.selectedTableId, store.data.selectedCustomerId, resId);
+            const order = await store.placeOrder(store.data.currentOrderType, method, store.data.selectedTableId, store.data.selectedCustomerId, resId, store.data.selectedHotelResId);
             if (order) {
                 payModal.style.display = 'none';
                 document.getElementById('receiptDate').textContent = new Date().toLocaleString();
@@ -2084,7 +2127,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         <span class="ticket-timer" id="timer-${ord.id}">00:00</span>
                                     </div>
                                     <div class="ticket-context">
-                                        <i class="fa-solid ${ord.order_type === 'Takeaway' ? 'fa-bag-shopping' : 'fa-chair'}"></i>
+                                        <i class="fa-solid ${ord.order_type === 'Takeaway' ? 'fa-bag-shopping' : (ord.order_type === 'Room Service' ? 'fa-bed' : 'fa-chair')}"></i>
                                         <span>${ord.order_type || 'Dine In'}</span>
                                         ${table ? `<span style="background:var(--primary-light); color:var(--primary); padding:2px 8px; border-radius:4px; font-size:11px;">${table.name}</span>` : ''}
                                     </div>
@@ -2218,11 +2261,22 @@ document.addEventListener('DOMContentLoaded', () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${orders.length > 0 ? orders.map(ord => `
+                                    ${orders.length > 0 ? orders.map(ord => {
+                                        let roomFlag = '';
+                                        if (ord.hotel_reservation_id) {
+                                            const hb = (store.data.hotelReservations || []).find(r => r.id == ord.hotel_reservation_id);
+                                            if (hb) {
+                                                const room = (store.data.hotelRooms || []).find(r => r.id == hb.hotel_room_id);
+                                                if (room) {
+                                                    roomFlag = `<br><span style="font-size:11px; font-weight:600; color:#10b981;"><i class="fa-solid fa-bed"></i> Room ${room.room_number}</span>`;
+                                                }
+                                            }
+                                        }
+                                        return `
                                         <tr>
                                             <td><strong>${ord.id}</strong></td>
                                             <td>${new Date(ord.date).toLocaleDateString()} <br> <span style="color:var(--text-muted); font-size:12px;">${new Date(ord.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span></td>
-                                            <td><span class="type-badge">${ord.order_type || 'Dine In'}</span></td>
+                                            <td><span class="type-badge">${ord.order_type || 'Dine In'}</span>${roomFlag}</td>
                                             <td><span class="method-badge">${ord.payment_method || 'Cash'}</span></td>
                                             <td>
                                                 ${ord.items.length} items
@@ -2242,7 +2296,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 </td>
                                             ` : ''}
                                         </tr>
-                                    `).join('') : '<tr><td colspan="8" style="text-align:center;">No orders found.</td></tr>'}
+                                    `;}).join('') : '<tr><td colspan="8" style="text-align:center;">No orders found.</td></tr>'}
                                 </tbody>
                         </table>
                     </div>
@@ -2936,7 +2990,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     </div>
                                     <div style="padding:16px; flex:1;">
                                         <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
-                                            <i class="fa-solid ${ord.order_type === 'Takeaway' ? 'fa-bag-shopping' : 'fa-chair'}" style="color:var(--text-muted); font-size:12px;"></i>
+                                            <i class="fa-solid ${ord.order_type === 'Takeaway' ? 'fa-bag-shopping' : (ord.order_type === 'Room Service' ? 'fa-bed' : 'fa-chair')}" style="color:var(--text-muted); font-size:12px;"></i>
                                             <span style="font-weight:600; font-size:13px;">${ord.order_type || 'Dine In'}</span>
                                             ${table ? `<span style="background:var(--primary-light); color:var(--primary); padding:2px 8px; border-radius:4px; font-size:11px;">${table.name}</span>` : ''}
                                         </div>

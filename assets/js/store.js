@@ -169,7 +169,7 @@ const store = {
         this.saveCart();
     },
 
-    async placeOrder(orderType = 'Dine In', paymentMethod = 'Cash', tableId = null, customerId = null, reservationId = null) {
+    async placeOrder(orderType = 'Dine In', paymentMethod = 'Cash', tableId = null, customerId = null, reservationId = null, hotelReservationId = null) {
         if (this.data.cart.length === 0) {
             window.showToast("Cart is empty!", "error");
             return null;
@@ -233,7 +233,9 @@ const store = {
                 this.fetchAPI('/customers').then(r => r.json()),
                 this.fetchAPI('/tables').then(r => r.json()),
                 this.fetchAPI('/event-rooms').then(r => r.json()),
-                this.fetchAPI('/reservations').then(r => r.json())
+                this.fetchAPI('/reservations').then(r => r.json()),
+                this.fetchAPI('/hotel-reservations').then(r => r.json()).catch(() => []),
+                this.fetchAPI('/hotel-rooms').then(r => r.json()).catch(() => [])
             ];
 
             if (this.data.currentUser && this.data.currentUser.role === 'admin') {
@@ -242,7 +244,7 @@ const store = {
                 endpoints.push(Promise.resolve(this.data.inventory || [])); 
             }
 
-            const [dishes, orders, customers, tables, eventRooms, reservations, inventory] = await Promise.all(endpoints);
+            const [dishes, orders, customers, tables, eventRooms, reservations, hotelReservations, hotelRooms, inventory] = await Promise.all(endpoints);
             
             this.data.dishes = dishes;
             this.data.orders = orders;
@@ -250,6 +252,8 @@ const store = {
             this.data.tables = tables;
             this.data.eventRooms = eventRooms;
             this.data.reservations = reservations;
+            this.data.hotelReservations = hotelReservations;
+            this.data.hotelRooms = hotelRooms;
             this.data.inventory = inventory;
             
             this.checkLowStock();

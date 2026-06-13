@@ -18,6 +18,10 @@ const store = {
     async fetchAPI(endpoint, options = {}) {
         const url = `${API_URL}${endpoint}`;
         const headers = { 'Content-Type': 'application/json', ...options.headers };
+        if (this.data.currentUser) {
+            headers['x-user-id'] = this.data.currentUser.id;
+            headers['x-user-role'] = this.data.currentUser.role;
+        }
         const response = await fetch(url, { ...options, headers });
         if (!response.ok) throw new Error(`API Error: ${response.status}`);
         return response;

@@ -50,6 +50,14 @@
                     <i class="fa-solid fa-door-open"></i>
                     <span>Venues</span>
                 </a>
+                <a href="#/hotel-rooms" class="nav-item" data-route="/hotel-rooms">
+                    <i class="fa-solid fa-bed"></i>
+                    <span>Hotel Rooms</span>
+                </a>
+                <a href="#/hotel-bookings" class="nav-item" data-route="/hotel-bookings">
+                    <i class="fa-solid fa-address-book"></i>
+                    <span>Hotel Bookings</span>
+                </a>
                 <a href="#/finance" class="nav-item" data-route="/finance">
                     <i class="fa-solid fa-file-invoice-dollar"></i>
                     <span>Finance</span>
@@ -631,5 +639,136 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="assets/js/store.js"></script>
     <script src="assets/js/app.js"></script>
+
+    <!-- Hotel Booking Modal -->
+    <div id="hotelBookingModal" class="modal-overlay" style="display:none;">
+        <div class="modal-content" style="max-width: 800px;">
+            <h3 id="hotelBookingModalTitle">New Hotel Booking</h3>
+            <div class="reservation-tabs" style="display:flex; gap:10px; margin-bottom:20px; border-bottom:1px solid var(--border-color);">
+                <button class="res-tab-btn active" data-target="hotel-tab-general">General Info</button>
+                <button class="res-tab-btn" data-target="hotel-tab-bills" id="hotelBillsTabBtn" style="display:none;">Restaurant Bills</button>
+            </div>
+
+            <form id="hotelBookingForm">
+                <input type="hidden" id="hbId">
+                <input type="hidden" id="hbBookingNo">
+                
+                <!-- General Info Tab -->
+                <div id="hotel-tab-general" class="res-tab-content" style="display:block;">
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="form-group">
+                            <label>Customer Name</label>
+                            <input type="text" id="hbCustomerName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Customer Phone</label>
+                            <input type="text" id="hbCustomerPhone" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Hotel Room</label>
+                            <select id="hbRoom" required>
+                                <!-- options populated dynamically -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Number of Guests</label>
+                            <input type="number" id="hbNumGuests" min="1" value="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Check-in Date</label>
+                            <input type="date" id="hbCheckIn" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Check-out Date</label>
+                            <input type="date" id="hbCheckOut" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="hbStatus" required>
+                                <option value="Confirmed">Confirmed</option>
+                                <option value="Pending">Pending</option>
+                                <option value="Checked In">Checked In</option>
+                                <option value="Checked Out">Checked Out</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Room Total Price (Rs.)</label>
+                            <input type="number" id="hbTotalPrice" step="0.01" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Restaurant Bills Tab -->
+                <div id="hotel-tab-bills" class="res-tab-content" style="display:none;">
+                    <div id="hotelRestaurantBillsList" style="margin-bottom:15px; max-height:300px; overflow-y:auto;">
+                        <div style="color:var(--text-muted); text-align:center; padding:20px;">No bills yet.</div>
+                    </div>
+                    <div style="text-align:right; font-size:18px; font-weight:bold;">
+                        Total POS Charges: <span id="hbPosTotal" style="color:var(--primary);">Rs. 0.00</span>
+                    </div>
+                </div>
+
+                <div class="modal-actions" style="margin-top: 20px;">
+                    <button type="button" class="btn btn-outline" id="closeHotelBookingModal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Booking</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+
+    <!-- Hotel Checkout Modal -->
+    <div class="modal-overlay" id="hotelCheckoutModal" style="display:none;">
+        <div class="modal-content" style="max-width: 800px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3><i class="fa-solid fa-file-invoice" style="margin-right:8px; color:var(--primary);"></i> Hotel Checkout & Invoice</h3>
+                <button class="btn btn-outline" onclick="printHotelCheckoutInvoice()" style="margin-bottom:10px;"><i class="fa-solid fa-print"></i> Print</button>
+            </div>
+            
+            <div id="hotelCheckoutPrintArea" style="background:#fff; color:#000; padding:20px; border-radius:8px; font-family:monospace; margin-bottom:20px;">
+                <div style="text-align:center; border-bottom:1px dashed #ccc; padding-bottom:10px; margin-bottom:10px;">
+                    <h2 style="margin:0;">IMPERIAL</h2>
+                    <div>Hotel Booking Invoice</div>
+                </div>
+                
+                <div style="display:flex; justify-content:space-between; margin-bottom:15px; font-size:14px;">
+                    <div>
+                        <strong>Customer:</strong> <span id="hchk_customer"></span><br>
+                        <strong>Booking No:</strong> <span id="hchk_booking_no"></span><br>
+                        <strong>Status:</strong> <span id="hchk_status"></span>
+                    </div>
+                    <div style="text-align:right;">
+                        <strong>Room:</strong> <span id="hchk_room"></span><br>
+                        <strong>Dates:</strong> <span id="hchk_dates"></span>
+                    </div>
+                </div>
+
+                <table style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+                    <thead>
+                        <tr style="border-bottom:1px solid #000; text-align:left;">
+                            <th style="padding:8px 0;">Description</th>
+                            <th style="padding:8px 0; text-align:right;">Amount (Rs.)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="hchk_items_body">
+                        <!-- Populated dynamically -->
+                    </tbody>
+                </table>
+                
+                <div style="border-top:1px dashed #ccc; padding-top:10px; text-align:right;">
+                    <div style="font-size:14px;">Room Subtotal: <span id="hchk_room_total">0.00</span></div>
+                    <div style="font-size:14px;">Restaurant Total: <span id="hchk_pos_total">0.00</span></div>
+                    <div style="font-size:18px; font-weight:bold; margin-top:5px;">Grand Total: <span id="hchk_grand_total">0.00</span></div>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="document.getElementById('hotelCheckoutModal').style.display='none'">Close</button>
+                <button class="btn btn-primary" id="markHotelPaidBtn">Finalize Checkout</button>
+            </div>
+        </div>
+    </div>
+    
 </body>
 </html>

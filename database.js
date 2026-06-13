@@ -77,6 +77,9 @@ db.serialize(() => {
             db.run("ALTER TABLE orders ADD COLUMN reservation_id INTEGER", (err) => {
                 if (err && !err.message.includes("duplicate column name")) console.error(err);
             });
+            db.run("ALTER TABLE orders ADD COLUMN hotel_reservation_id INTEGER", (err) => {
+                if (err && !err.message.includes("duplicate column name")) console.error(err);
+            });
         }
     });
 
@@ -134,6 +137,29 @@ db.serialize(() => {
     });
 
     // 11. Event Rooms
+    db.run(`CREATE TABLE IF NOT EXISTS inquiries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ref_no TEXT UNIQUE,
+        customer_name TEXT,
+        customer_phone TEXT,
+        customer_email TEXT,
+        event_type TEXT,
+        preferred_date TEXT,
+        flexible_date INTEGER,
+        num_guests INTEGER,
+        preferred_room_id INTEGER,
+        budget REAL,
+        requirements TEXT,
+        source TEXT,
+        assigned_to TEXT,
+        follow_up_date TEXT,
+        notes TEXT,
+        menu_selections TEXT,
+        status TEXT DEFAULT 'New',
+        created_at TEXT DEFAULT (datetime('now'))
+    )`);
+
+    // 11b. Event Rooms
     db.run(`CREATE TABLE IF NOT EXISTS event_rooms (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
@@ -147,6 +173,16 @@ db.serialize(() => {
             db.run("ALTER TABLE event_rooms ADD COLUMN cleanup_buffer_hours REAL DEFAULT 0", (e) => {});
         }
     });
+
+    // 11c. Hotel Rooms (Room Reservations)
+    db.run(`CREATE TABLE IF NOT EXISTS hotel_rooms (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        room_number TEXT UNIQUE,
+        room_type TEXT,
+        price_per_night REAL,
+        capacity INTEGER,
+        status TEXT DEFAULT 'Available'
+    )`);
 
     // 12. Reservations
     db.run(`CREATE TABLE IF NOT EXISTS reservations (
@@ -184,6 +220,24 @@ db.serialize(() => {
         }
     });
 
+    
+    // 21. Hotel Reservations
+    db.run(`CREATE TABLE IF NOT EXISTS hotel_reservations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        booking_no TEXT,
+        customer_name TEXT,
+        customer_phone TEXT,
+        hotel_room_id INTEGER,
+        check_in_date TEXT,
+        check_out_date TEXT,
+        num_guests INTEGER,
+        status TEXT,
+        total_price REAL,
+        pos_charges REAL DEFAULT 0.0,
+        date_created TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY(hotel_room_id) REFERENCES hotel_rooms(id)
+    )`);
+    
     // 13. Waitlist Queue
     db.run(`CREATE TABLE IF NOT EXISTS waitlist (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -339,6 +393,11 @@ db.serialize(() => {
 
             // Seed Event Equipment
             db.run("INSERT INTO event_rooms (name, capacity, price_per_day, type, status) VALUES ('Banquet Hall B', 150, 40000.00, 'Banquet', 'Available')");
+            // Hotel Rooms Seeds
+            db.run("INSERT INTO hotel_rooms (room_number, room_type, price_per_night, capacity, status) VALUES ('101', 'Standard', 15000.00, 2, 'Available')");
+            db.run("INSERT INTO hotel_rooms (room_number, room_type, price_per_night, capacity, status) VALUES ('102', 'Deluxe', 25000.00, 2, 'Available')");
+            db.run("INSERT INTO hotel_rooms (room_number, room_type, price_per_night, capacity, status) VALUES ('201', 'Suite', 50000.00, 4, 'Available')");
+            db.run("INSERT INTO hotel_rooms (room_number, room_type, price_per_night, capacity, status) VALUES ('202', 'Family', 35000.00, 4, 'Available')");
             db.run("INSERT INTO event_equipment (name, price_per_day, total_quantity, type) VALUES ('Premium PA System', 10000.00, 2, 'AV')");
             db.run("INSERT INTO event_equipment (name, price_per_day, total_quantity, type) VALUES ('4K Projector & Screen', 5000.00, 3, 'AV')");
             db.run("INSERT INTO event_equipment (name, price_per_day, total_quantity, type) VALUES ('Floral Arch Decor', 15000.00, 1, 'Decor')");
