@@ -45,15 +45,46 @@ function formatCurrency(v) {
 }
 
 const EVENT_MENU = {
-    "Action Station (Live Cooking Station)": ["Pasta (Alfredo / Bolognese / Carbonara)", "Fried noodles (Chicken / Seafood / Vegetable)", "Omelette (cheese, mushroom, onion, chili options)", "Dosa / Hoppers (Sri Lankan live station)", "Stir-fried rice (egg / chicken / mixed)", "Carving roast chicken / beef slices"],
-    "Appetizers / Starters": ["Chicken spring rolls", "Vegetable samosas", "Garlic bread bites", "Devilled chicken / fish", "Prawn cocktail", "Mini sliders (beef or chicken)", "Stuffed mushrooms"],
-    "Main Course": ["Chicken curry (Sri Lankan / Indian style)", "Beef curry", "Fish ambul thiyal", "Vegetable korma", "Fried rice / steamed rice", "Pasta with sauces", "Grilled chicken steak", "Lamb stew"],
-    "Desserts / Sweet / Dessert Live Station": ["Chocolate fountain with fruits", "Ice cream (vanilla, chocolate, strawberry)", "Watalappan (Sri Lankan dessert)", "Cheesecake slices", "Fruit salad", "Pancakes with toppings (live station)", "Chocolate mousse"],
-    "Beverage Station": ["Fresh lime juice", "Orange juice", "Mango juice", "Soft drinks (cola, sprite)", "Tea (black / milk tea)", "Coffee (espresso / cappuccino)", "Mocktails (mojito, sunrise)"],
-    "Bakery / Bread Station": ["Croissants", "Dinner rolls", "Garlic bread", "Baguette slices", "Muffins (chocolate / blueberry)", "Danish pastries", "Butter & jam spreads"],
-    "Salad Bar": ["Lettuce, cucumber, tomato mix", "Beetroot salad", "Coleslaw", "Pasta salad", "Potato salad", "Corn salad", "Dressings (vinaigrette, mayo, yogurt)"],
-    "Soup Station": ["Chicken clear soup", "Cream of mushroom soup", "Sweet corn soup", "Pumpkin soup", "Seafood soup", "Lentil soup (dal soup)"],
-    "Live Grill / BBQ Station": ["Grilled chicken skewers", "Beef steak slices", "Grilled prawns", "BBQ sausages", "Grilled fish fillets", "Vegetable skewers (capsicum, mushroom, onion)"]
+    "Welcome Drinks": ["Fresh Fruit Juice", "Iced Tea", "Soft Drinks", "Fresh Juices", "Mocktails", "Tender Coconut", "Premium Mocktails"],
+    "Appetizers": ["Vegetable Spring Rolls", "Fish Cutlets", "Chicken Patties", "Chicken Satay", "Fish Fingers", "Vegetable Samosas", "Prawn Cocktail", "Mini Quiches", "Vegetable Canapés", "Prawn Tempura", "Smoked Salmon Canapés", "Vegetable Bruschetta"],
+    "Soup": ["Cream of Chicken Soup", "Seafood Chowder", "Cream of Mushroom Soup"],
+    "Main Course": ["Steamed Rice", "Fried Rice", "Chicken Curry", "Fish Curry", "Mixed Vegetables", "Basmati Rice", "Beef / Mutton Curry", "Vegetable Curry", "Seafood Fried Rice", "Grilled Chicken", "Fish Fillet", "Beef Steak", "Pasta Station", "Vegetable Selection", "International Buffet", "Seafood Selection", "Chicken Selection", "Beef / Lamb Selection", "Vegetarian Selection", "Rice & Noodle Selection"],
+    "Salad Bar": ["Green Salad", "Salad Bar", "Premium Salad Bar"],
+    "Desserts": ["Ice Cream", "Fruit Salad", "Chocolate Mousse", "Fresh Fruits", "Cheesecake", "Chocolate Brownies", "Fruit Platter", "Chocolate Fountain", "Assorted Cakes", "Cheesecakes", "Ice Cream Station", "Fresh Fruit Selection"],
+    "Live Stations": ["Pasta Station", "BBQ Station", "Action Cooking Station"]
+};
+
+const PACKAGE_DEFAULTS = {
+    "Silver Event Package": {
+        "Welcome Drinks": ["Fresh Fruit Juice", "Iced Tea", "Soft Drinks"],
+        "Appetizers": ["Vegetable Spring Rolls", "Fish Cutlets", "Chicken Patties"],
+        "Main Course": ["Steamed Rice", "Fried Rice", "Chicken Curry", "Fish Curry", "Mixed Vegetables", "Green Salad"],
+        "Desserts": ["Ice Cream", "Fruit Salad"]
+    },
+    "Gold Event Package": {
+        "Welcome Drinks": ["Fresh Juices", "Mocktails", "Soft Drinks"],
+        "Appetizers": ["Chicken Satay", "Fish Fingers", "Vegetable Samosas"],
+        "Soup": ["Cream of Chicken Soup"],
+        "Main Course": ["Basmati Rice", "Fried Rice", "Chicken Curry", "Fish Curry", "Beef / Mutton Curry", "Vegetable Curry"],
+        "Salad Bar": ["Green Salad"],
+        "Desserts": ["Chocolate Mousse", "Ice Cream", "Fresh Fruits"]
+    },
+    "Platinum Event Package": {
+        "Welcome Drinks": ["Fresh Juices", "Mocktails", "Soft Drinks", "Tender Coconut"],
+        "Appetizers": ["Prawn Cocktail", "Chicken Satay", "Mini Quiches", "Vegetable Canapés"],
+        "Soup": ["Seafood Chowder", "Cream of Mushroom Soup"],
+        "Main Course": ["Basmati Rice", "Seafood Fried Rice", "Grilled Chicken", "Fish Fillet", "Beef Steak", "Pasta Station", "Vegetable Selection"],
+        "Salad Bar": ["Salad Bar"],
+        "Desserts": ["Cheesecake", "Chocolate Brownies", "Ice Cream", "Fruit Platter"]
+    },
+    "Diamond Event Package": {
+        "Welcome Drinks": ["Premium Mocktails", "Fresh Juices", "Soft Drinks"],
+        "Live Stations": ["Pasta Station", "BBQ Station", "Action Cooking Station"],
+        "Appetizers": ["Prawn Tempura", "Chicken Satay", "Smoked Salmon Canapés", "Vegetable Bruschetta"],
+        "Main Course": ["International Buffet", "Seafood Selection", "Chicken Selection", "Beef / Lamb Selection", "Vegetarian Selection", "Rice & Noodle Selection"],
+        "Salad Bar": ["Premium Salad Bar"],
+        "Desserts": ["Chocolate Fountain", "Assorted Cakes", "Cheesecakes", "Ice Cream Station", "Fresh Fruit Selection"]
+    }
 };
 
 function renderMenuOptions(containerId, prefix, prefillJSON = null) {
@@ -85,6 +116,12 @@ function renderMenuOptions(containerId, prefix, prefillJSON = null) {
                 <span style="line-height:1.2;">${item}</span>
             </label>`;
         });
+        
+        contentHtml += `<div style="display:flex; gap:8px; margin-top:4px; grid-column: 1 / -1;">
+            <input type="text" id="${prefix}-custom-${catId}" placeholder="Add custom item..." style="flex:1; padding:6px; border:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.2); color:#fff; border-radius:4px;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="addCustomMenuItem('${category}', '${prefix}-custom-${catId}', '${containerId}', '${prefix}')"><i class="fa-solid fa-plus"></i> Add</button>
+        </div>`;
+
         contentHtml += `</div></div>`;
         first = false;
     }
@@ -120,23 +157,41 @@ window.handleMenuCheckboxChange = function(e) {
     const checkedCount = document.querySelectorAll(`.${prefix}-menu-cb[data-category="${category}"]:checked`).length;
     
     if (prefix === 'eb') {
-        let limit = 3;
-        const pkgElem = document.getElementById('eb_package_type');
-        if (pkgElem) {
-            const pkg = pkgElem.value;
-            if (pkg === 'Standard Package') limit = 2;
-            if (pkg === 'Premium Package') limit = 3;
-            if (pkg === 'Custom Package') limit = 5;
-        }
+        const meal = document.getElementById('eb_meal_type').value;
+        const defaultItems = PACKAGE_DEFAULTS[meal] && PACKAGE_DEFAULTS[meal][category] ? PACKAGE_DEFAULTS[meal][category] : [];
+        const limit = defaultItems.length + 1; // 1 extra allowed
+        
         if (checkedCount > limit && cb.checked) {
             cb.checked = false;
-            showToast(`Package Limit Reached: Only ${limit} items allowed per category for this package.`, 'warning');
+            showToast(`Limit Reached: You can only select 1 extra item per category.`, 'warning');
         }
+        _ebState.menu_selections = getMenuSelections('eb').menu_selections;
     } else {
         if (checkedCount > 3 && cb.checked) {
             showToast(`Warning: Selecting more than 3 items in "${category}" will require Sales Approval.`, 'warning');
         }
     }
+};
+
+window.addCustomMenuItem = function(category, inputId, containerId, prefix) {
+    const input = document.getElementById(inputId);
+    if (!input || !input.value.trim()) return showToast('Please enter an item name', 'error');
+    const item = input.value.trim();
+    
+    if (!EVENT_MENU[category].includes(item)) {
+        EVENT_MENU[category].push(item);
+    }
+    
+    const currentSelections = getMenuSelections(prefix);
+    if (!currentSelections.menu_selections[category]) {
+        currentSelections.menu_selections[category] = [];
+    }
+    if (!currentSelections.menu_selections[category].includes(item)) {
+        currentSelections.menu_selections[category].push(item);
+    }
+    
+    renderMenuOptions(containerId, prefix, currentSelections.menu_selections);
+    showToast('Custom item added!', 'success');
 };
 
 function getMenuSelections(prefix) {
@@ -169,12 +224,33 @@ const routes = {
     '/approval':  renderApproval,
     '/finance':   renderFinance,
     '/calendar':  renderCalendar,
+    '/kitchen-prep': renderKitchenPrep,
     '/reports':   renderReports,
     '/payments':  renderPayments,
     '/settings':  renderSettings
 };
 
 let currentRoute = '/dashboard';
+
+// ─── RBAC Configuration ────────────────────────────────────────────────────────
+const ROLE_PERMISSIONS = {
+    'admin': ['/dashboard', '/customers', '/inquiry', '/booking', '/events', '/rooms', '/hotel-rooms', '/hotel-bookings', '/finance', '/agreement', '/approval', '/calendar', '/kitchen-prep', '/reports', '/payments', '/settings'],
+    'manager': ['/dashboard', '/customers', '/inquiry', '/booking', '/events', '/rooms', '/hotel-rooms', '/hotel-bookings', '/finance', '/agreement', '/approval', '/calendar', '/kitchen-prep', '/reports', '/payments', '/settings'],
+    'finance': ['/dashboard', '/finance', '/approval', '/payments', '/reports'],
+    'cashier': ['/dashboard', '/customers', '/inquiry', '/booking', '/hotel-bookings', '/agreement', '/calendar', '/payments'],
+    'kitchen': ['/dashboard', '/calendar', '/kitchen-prep'],
+    'waiter': ['/dashboard', '/calendar']
+};
+
+function getFirstAllowedRoute(role) {
+    const allowed = ROLE_PERMISSIONS[role] || ['/dashboard'];
+    return allowed[0] || '/dashboard';
+}
+
+function isRouteAllowed(role, route) {
+    const allowed = ROLE_PERMISSIONS[role] || [];
+    return allowed.includes(route);
+}
 
 function navigate(route) {
     if (!store.data.currentUser && route !== '/login') {
@@ -183,12 +259,15 @@ function navigate(route) {
     }
 
     if (store.data.currentUser) {
-        if (store.data.currentUser.role === 'finance' && route !== '/finance' && route !== '/login') {
-            window.location.hash = '#/finance';
+        const role = store.data.currentUser.role;
+        
+        if (route === '/login') {
+            window.location.hash = '#' + getFirstAllowedRoute(role);
             return;
         }
-        if (route === '/login') {
-            window.location.hash = store.data.currentUser.role === 'finance' ? '#/finance' : '#/dashboard';
+        
+        if (!isRouteAllowed(role, route) && route !== '/login') {
+            window.location.hash = '#' + getFirstAllowedRoute(role);
             return;
         }
     }
@@ -291,14 +370,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Handle sidebar visibility based on role
             document.querySelectorAll('.sidebar-nav .nav-item').forEach(el => {
                 const route = el.getAttribute('data-route');
-                if (u.role === 'finance') {
-                    if (route === '/finance') {
+                if (route) {
+                    if (isRouteAllowed(u.role, route)) {
                         el.style.display = 'flex';
                     } else {
                         el.style.display = 'none';
                     }
-                } else {
-                    el.style.display = 'flex';
                 }
             });
         }
@@ -980,22 +1057,34 @@ function checkOverlap(roomId, dateStart, dateEnd, excludeResId = null) {
 
 // ─── Payments & Invoices View ────────────────────────────────────────────────
 function renderPayments(c) {
-    const completedReservations = store.data.reservations.filter(r => r.status === 'Completed' || r.status === 'Checked Out');
+    const approvedReservations = store.data.reservations.filter(r => r.finance_approved === 1 && r.status !== 'Cancelled').map(r => ({...r, type: 'Event'}));
+    const approvedHotelReservations = (store.data.hotelBookings || []).filter(r => r.finance_approved === 1 && r.status !== 'Cancelled').map(r => ({
+        ...r, 
+        type: 'Hotel', 
+        event_name: 'Hotel Room Booking', 
+        room_name: 'Room ' + (r.room_number || r.hotel_room_id)
+    }));
+    
+    const allCompleted = [...approvedReservations, ...approvedHotelReservations].sort((a,b) => {
+        const dateA = new Date(a.date_end || a.check_out_date || a.updated_at || a.created_at || Date.now());
+        const dateB = new Date(b.date_end || b.check_out_date || b.updated_at || b.created_at || Date.now());
+        return dateB - dateA; // Sort by date descending
+    });
     
     c.innerHTML = `
     <div class="header">
         <div class="header-title">
             <h1 class="page-title"><i class="fa-solid fa-file-invoice-dollar" style="color:var(--primary);margin-right:10px;"></i>Payments & Invoices</h1>
-            <p style="color:var(--text-muted);font-size:14px;margin-top:5px;">Ledger of all completed and paid reservations.</p>
+            <p style="color:var(--text-muted);font-size:14px;margin-top:5px;">Process payments and view ledgers of approved reservations.</p>
         </div>
     </div>
     
     <div class="card" style="margin-top:20px;">
-        ${completedReservations.length === 0 ? `
+        ${allCompleted.length === 0 ? `
             <div class="empty-state">
                 <i class="fa-regular fa-folder-open"></i>
-                <h3>No Completed Invoices</h3>
-                <p>There are no checked-out reservations yet.</p>
+                <h3>No Approved Invoices</h3>
+                <p>There are no reservations pending payment or completed.</p>
             </div>
         ` : `
             <div class="table-wrapper">
@@ -1003,6 +1092,7 @@ function renderPayments(c) {
                     <thead>
                         <tr>
                             <th>Invoice / Booking No</th>
+                            <th>Type</th>
                             <th>Customer</th>
                             <th>Event / Venue</th>
                             <th>Date Completed</th>
@@ -1012,21 +1102,34 @@ function renderPayments(c) {
                         </tr>
                     </thead>
                     <tbody>
-                        ${completedReservations.sort((a,b) => b.id - a.id).map(r => `
+                        ${allCompleted.map(r => `
                             <tr>
-                                <td style="font-weight:700; color:var(--primary);">${r.booking_no || 'BKG-'+String(r.id).padStart(4,'0')}</td>
+                                <td style="font-weight:700; color:var(--primary);">${r.booking_no || (r.type === 'Hotel' ? 'HB-' : 'BKG-')+String(r.id).padStart(4,'0')}</td>
+                                <td><span style="background:rgba(59, 130, 246, 0.1); color:#3b82f6; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:bold;">${r.type}</span></td>
                                 <td>
                                     <div style="font-weight:600;">${r.customer_name}</div>
                                     <div style="font-size:12px;color:var(--text-muted);">${r.customer_phone || ''}</div>
                                 </td>
                                 <td>${r.event_name} <br><span style="font-size:11px;color:var(--text-muted);">${r.room_name || ''}</span></td>
-                                <td style="font-size:13px;color:var(--text-muted);">${new Date(r.date_end || r.updated_at || r.created_at || Date.now()).toLocaleDateString()}</td>
-                                <td style="color:var(--primary);font-weight:700;">${formatCurrency(parseFloat(r.total_price || 0) + parseFloat(r.pos_charges || 0))} <span style="font-size:10px; color:#666;">(Includes POS charges)</span></td>
-                                <td><span style="background:rgba(16, 185, 129, 0.1); color:#10b981; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:700;"><i class="fa-solid fa-check" style="margin-right:4px;"></i>PAID</span></td>
+                                <td style="font-size:13px;color:var(--text-muted);">${new Date(r.date_end || r.check_out_date || r.updated_at || r.created_at || Date.now()).toLocaleDateString()}</td>
+                                <td style="color:var(--primary);font-weight:700;">${formatCurrency(parseFloat(r.total_price || 0) + parseFloat(r.pos_charges || 0))} <span style="font-size:10px; color:#666;">(Includes POS)</span></td>
                                 <td>
-                                    <button class="btn btn-outline btn-sm" onclick="checkoutReservation(${r.id})" title="View Invoice" style="border-color:#10b981;color:#10b981;">
-                                        <i class="fa-solid fa-eye" style="margin-right:6px;"></i>View Invoice
-                                    </button>
+                                    ${(r.status === 'Completed' || r.status === 'Checked Out') 
+                                        ? `<span style="background:rgba(16, 185, 129, 0.1); color:#10b981; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:700;"><i class="fa-solid fa-check" style="margin-right:4px;"></i>PAID</span>`
+                                        : `<span style="background:rgba(245, 158, 11, 0.1); color:#f59e0b; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:700;"><i class="fa-regular fa-clock" style="margin-right:4px;"></i>PENDING PAYMENT</span>`
+                                    }
+                                </td>
+                                <td>
+                                    ${(r.status === 'Completed' || r.status === 'Checked Out') 
+                                        ? `
+                                        <button class="btn btn-outline btn-sm" onclick="${r.type === 'Hotel' ? `checkoutHotelBooking(${r.id})` : `checkoutReservation(${r.id})`}" title="View Invoice" style="border-color:#10b981;color:#10b981;">
+                                            <i class="fa-solid fa-eye" style="margin-right:6px;"></i>View Invoice
+                                        </button>`
+                                        : `
+                                        <button class="btn btn-primary btn-sm" onclick="${r.type === 'Hotel' ? `checkoutHotelBooking(${r.id})` : `checkoutReservation(${r.id})`}" title="Process Payment">
+                                            <i class="fa-solid fa-credit-card" style="margin-right:6px;"></i>Process Payment
+                                        </button>`
+                                    }
                                 </td>
                             </tr>
                         `).join('')}
@@ -1098,9 +1201,11 @@ async function checkoutReservation(id) {
         subtotal += parseFloat(res.total_price);
         const venueName = res.room_name ? `Venue: ${res.room_name}` : 'Venue Booking';
         itemsHtml += `
-            <tr style="border-bottom:1px solid #eee;">
-                <td style="padding:12px;"><strong>Event / Hall Charge:</strong> ${venueName}</td>
-                <td style="padding:12px; text-align:right;">${sym()}${parseFloat(res.total_price).toFixed(2)}</td>
+            <tr style="border-bottom:1px solid #eee; font-size:13px;">
+                <td style="padding:10px;">Event / Hall Charge: ${venueName}</td>
+                <td style="padding:10px; text-align:center;">1</td>
+                <td style="padding:10px; text-align:right;">${sym()}${parseFloat(res.total_price).toFixed(2)}</td>
+                <td style="padding:10px; text-align:right;">${sym()}${parseFloat(res.total_price).toFixed(2)}</td>
             </tr>
         `;
     }
@@ -1114,12 +1219,14 @@ async function checkoutReservation(id) {
             orders.forEach(o => {
                 subtotal += parseFloat(o.total);
                 itemsHtml += `
-                    <tr style="border-bottom:1px solid #eee;">
-                        <td style="padding:12px;">
-                            <strong>Restaurant Order #${o.id}</strong>
-                            <div style="font-size:12px; color:#666;">${o.items ? o.items.map(i => i.qty + 'x ' + i.dish_name).join(', ') : ''}</div>
+                    <tr style="border-bottom:1px solid #eee; font-size:13px;">
+                        <td style="padding:10px;">
+                            Restaurant Order #${o.id}
+                            <div style="font-size:11px; color:#666; margin-top:4px;">${o.items ? o.items.map(i => i.qty + 'x ' + i.dish_name).join(', ') : ''}</div>
                         </td>
-                        <td style="padding:12px; text-align:right;">${sym()}${parseFloat(o.total).toFixed(2)}</td>
+                        <td style="padding:10px; text-align:center;">1</td>
+                        <td style="padding:10px; text-align:right;">${sym()}${parseFloat(o.total).toFixed(2)}</td>
+                        <td style="padding:10px; text-align:right;">${sym()}${parseFloat(o.total).toFixed(2)}</td>
                     </tr>
                 `;
             });
@@ -1128,13 +1235,51 @@ async function checkoutReservation(id) {
         console.error('Error fetching orders for checkout', err);
     }
 
+    // 3. Add Event Builder Extras
+    const extras = ['additional_venues', 'materials_added', 'event_orders', 'event_extensions'];
+    extras.forEach(key => {
+        if (res[key]) {
+            try {
+                const list = JSON.parse(res[key]);
+                if (Array.isArray(list)) {
+                    list.forEach(item => {
+                        if (item.price) {
+                            subtotal += parseFloat(item.price);
+                            itemsHtml += `
+                                <tr style="border-bottom:1px solid #eee; font-size:13px;">
+                                    <td style="padding:10px;">${key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}: ${item.name}</td>
+                                    <td style="padding:10px; text-align:center;">1</td>
+                                    <td style="padding:10px; text-align:right;">${sym()}${parseFloat(item.price).toFixed(2)}</td>
+                                    <td style="padding:10px; text-align:right;">${sym()}${parseFloat(item.price).toFixed(2)}</td>
+                                </tr>
+                            `;
+                        }
+                    });
+                }
+            } catch(e) {}
+        }
+    });
+
     $('chk_items_body').innerHTML = itemsHtml;
     
     const tax = 0; // Tax is assumed included or calculate if needed
-    const grandTotal = subtotal + tax;
+    const advancePayment = parseFloat(res.advance_payment) || 0;
+    const grandTotal = subtotal + tax - advancePayment;
 
     $('chk_subtotal').textContent = `${sym()}${subtotal.toFixed(2)}`;
     $('chk_tax').textContent = `${sym()}${tax.toFixed(2)}`;
+    
+    // Add advance payment display logic inside the modal summary
+    const advanceRow = document.getElementById('chk_advance_payment_row');
+    if (advancePayment > 0) {
+        if (advanceRow) {
+            advanceRow.style.display = 'table-row';
+            document.getElementById('chk_advance_payment').textContent = `-${sym()}${advancePayment.toFixed(2)}`;
+        }
+    } else {
+        if (advanceRow) advanceRow.style.display = 'none';
+    }
+
     $('chk_grand_total').textContent = `${sym()}${grandTotal.toFixed(2)}`;
 
     openModal('checkoutModal');
@@ -1471,13 +1616,23 @@ function reservationTable(reservations, opts = {}) {
                         <div style="font-size:12px;color:var(--primary);font-weight:700;">${r.booking_no || 'BKG-'+String(r.id).padStart(4,'0')}</div>
                         <div style="font-weight:700;">${r.event_name}</div>
                         ${r.inquiry_ref_no ? `<div style="font-size:11px;color:var(--text-muted);"><i class="fa-solid fa-clipboard-question"></i> Ref: ${r.inquiry_ref_no}</div>` : ''}
-                        ${r.menu_selections && !opts.hideMenu ? `
-                        <div style="margin-top:8px;padding:8px;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.05);border-radius:6px;font-size:11px;line-height:1.4;">
-                            <strong style="color:var(--primary);display:block;margin-bottom:4px;">Menu Selection:</strong>
-                            ${Object.entries(typeof r.menu_selections === 'string' ? JSON.parse(r.menu_selections) : r.menu_selections).map(([cat, items]) => 
-                                `<div style="margin-bottom:3px;"><span style="color:#a8b2d1;font-weight:600;">${cat}:</span> ${items.join(', ')}</div>`
-                            ).join('')}
-                        </div>` : ''}
+                        ${(function() {
+                            if (!r.menu_selections || r.menu_selections === 'null' || opts.hideMenu) return '';
+                            let obj = r.menu_selections;
+                            try {
+                                if (typeof obj === 'string') obj = JSON.parse(obj);
+                                if (typeof obj === 'string') obj = JSON.parse(obj);
+                            } catch(e) { return ''; }
+                            if (typeof obj !== 'object' || obj === null) return '';
+                            return `
+                            <div style="margin-top:8px;padding:8px;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.05);border-radius:6px;font-size:11px;line-height:1.4;">
+                                <strong style="color:var(--primary);display:block;margin-bottom:4px;">Menu Selection:</strong>
+                                ${Object.entries(obj).map(([cat, items]) => {
+                                    if (!Array.isArray(items)) return '';
+                                    return `<div style="margin-bottom:3px;"><span style="color:#a8b2d1;font-weight:600;">${cat}:</span> ${items.join(', ')}</div>`;
+                                }).join('')}
+                            </div>`;
+                        })()}
                     </td>
                     <td>
                         <div style="font-weight:600;">${r.customer_name}</div>
@@ -1505,7 +1660,9 @@ function reservationTable(reservations, opts = {}) {
                                 <button class="btn btn-danger btn-sm" onclick="updateReservationStatus(${r.id},'Cancelled')">
                                     <i class="fa-solid fa-xmark"></i>
                                 </button>` : ''}
-
+                            <button class="btn btn-outline btn-sm" onclick="viewAgreement(${r.id})" title="View Agreement" style="border-color:#4a72c1;color:#4a72c1;">
+                                <i class="fa-solid fa-file-contract"></i>
+                            </button>
                             <button class="btn btn-outline btn-sm" onclick="openReservationModal(${r.id})" title="Edit">
                                 <i class="fa-solid fa-pen"></i>
                             </button>
@@ -1984,22 +2141,42 @@ window.ebRenderPaymentSummary = function() {
     let grandTotal = basePrice;
 
     Object.keys(_ebState).forEach(key => {
-        if (key === 'check_list') return;
-        const subtotal = _ebState[key].reduce((sum, item) => sum + (item.price || 0), 0);
-        if (subtotal > 0) {
-            grandTotal += subtotal;
-            summaryHtml += `
-            <div style="display:flex;justify-content:space-between;padding:12px;background:rgba(255,255,255,0.02);border-radius:6px;">
-                <span style="text-transform:capitalize;">${key.replace('_', ' ')}</span>
-                <strong style="color:var(--primary);">+ Rs. ${subtotal.toFixed(2)}</strong>
-            </div>
-            `;
+        if (key === 'check_list' || key === 'menu_selections') return;
+        const list = _ebState[key];
+        if (Array.isArray(list)) {
+            const subtotal = list.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
+            if (subtotal > 0) {
+                grandTotal += subtotal;
+                summaryHtml += `
+                <div style="display:flex;justify-content:space-between;padding:12px;background:rgba(255,255,255,0.02);border-radius:6px;">
+                    <span style="text-transform:capitalize;">${key.replace(/_/g, ' ')}</span>
+                    <strong style="color:var(--primary);">+ Rs. ${subtotal.toFixed(2)}</strong>
+                </div>
+                `;
+            }
         }
     });
 
+    let advancePayment = 0;
+    const advanceEl = document.getElementById('eb_advance_payment');
+    if (advanceEl && advanceEl.value) {
+        advancePayment = parseFloat(advanceEl.value) || 0;
+    }
+
+    grandTotal -= advancePayment;
+
+    if (advancePayment > 0) {
+        summaryHtml += `
+        <div style="display:flex;justify-content:space-between;padding:12px;background:rgba(239,68,68,0.1);border-radius:6px;margin-top:10px;">
+            <span style="color:#ef4444;">Advanced Payment</span>
+            <strong style="color:#ef4444;">- Rs. ${advancePayment.toFixed(2)}</strong>
+        </div>
+        `;
+    }
+
     summaryHtml += `
         <div style="display:flex;justify-content:space-between;padding:16px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:6px;margin-top:10px;">
-            <span style="font-size:18px;font-weight:bold;color:#10b981;">Grand Total</span>
+            <span style="font-size:18px;font-weight:bold;color:#10b981;">Final Amount Due</span>
             <strong style="font-size:18px;color:#10b981;">Rs. ${grandTotal.toFixed(2)}</strong>
         </div>
     </div>`;
@@ -2039,9 +2216,35 @@ window._ebFillBooking = function(id) {
     if (!id) return;
     const res = store.data.reservations.find(r => r.id == id);
     if (res) {
-        if (document.getElementById('eb_pax_size')) document.getElementById('eb_pax_size').value = res.num_guests || '';
+        if (document.getElementById('eb_pax_size')) document.getElementById('eb_pax_size').value = res.pax_size || res.num_guests || '';
         if (document.getElementById('eb_start_date')) document.getElementById('eb_start_date').value = res.date_start ? res.date_start.split('T')[0] : '';
         if (document.getElementById('eb_end_date')) document.getElementById('eb_end_date').value = res.date_end ? res.date_end.split('T')[0] : '';
+        
+        const ft = document.getElementById('eb_function_type');
+        if (ft) {
+            const val = res.function_type || res.event_name || '';
+            // Try setting it. If option doesn't exist, it won't change, which is fine, 
+            // but we can also add it dynamically if we want to support custom event names.
+            // For now, let's just set the value.
+            ft.value = val;
+            if (ft.value !== val && val) {
+                // If it wasn't set because option didn't exist, add the option
+                const opt = document.createElement('option');
+                opt.value = val;
+                opt.text = val;
+                ft.add(opt);
+                ft.value = val;
+            }
+        }
+
+        if (document.getElementById('eb_event_type')) document.getElementById('eb_event_type').value = res.event_type || 'Internal';
+        if (document.getElementById('eb_package_type')) document.getElementById('eb_package_type').value = res.package_type || 'Standard Package';
+        if (document.getElementById('eb_meal_type')) document.getElementById('eb_meal_type').value = res.meal_type || 'Buffet';
+        if (document.getElementById('eb_start_time')) document.getElementById('eb_start_time').value = res.start_time || '';
+        if (document.getElementById('eb_end_time')) document.getElementById('eb_end_time').value = res.end_time || '';
+        if (document.getElementById('eb_meal_time')) document.getElementById('eb_meal_time').value = res.meal_time || '';
+        if (document.getElementById('eb_children_count')) document.getElementById('eb_children_count').value = res.children_count || '';
+        if (document.getElementById('eb_description')) document.getElementById('eb_description').value = res.description || res.notes || '';
         
         try { _ebState.additional_venues = res.additional_venues ? JSON.parse(res.additional_venues) : []; } catch(e){}
         try { _ebState.materials_added = res.materials_added ? JSON.parse(res.materials_added) : []; } catch(e){}
@@ -2051,6 +2254,22 @@ window._ebFillBooking = function(id) {
         
         Object.keys(_ebState).forEach(key => ebRenderList(key));
         ebRenderPaymentSummary();
+    }
+};
+
+window._applyPackageDefaults = function() {
+    const meal = document.getElementById('eb_meal_type').value;
+    const defaults = PACKAGE_DEFAULTS[meal];
+    if (!defaults) return;
+    
+    if (!_ebState.menu_selections) _ebState.menu_selections = {};
+    _ebState.menu_selections = JSON.parse(JSON.stringify(defaults));
+    
+    showToast(`Applied ${meal} default menu items. You can add 1 extra item per category.`, 'info');
+    
+    const targetEl = document.getElementById('eb_tab_Menu');
+    if (targetEl && targetEl.style.display !== 'none') {
+        renderMenuOptions('eb_menu_container', 'eb', _ebState.menu_selections);
     }
 };
 
@@ -2068,13 +2287,19 @@ window.switchEbTab = function(tab) {
     if (tab === 'Menu') {
         const pkg = document.getElementById('eb_package_type').value;
         const meal = document.getElementById('eb_meal_type').value;
-        let limit = 3;
-        if (pkg === 'Standard Package') limit = 2;
-        if (pkg === 'Premium Package') limit = 3;
-        if (pkg === 'Custom Package') limit = 5;
-        document.getElementById('eb_menu_subtitle').textContent = `Package: ${pkg} | Meal Type: ${meal} | Max selections per category: ${limit}`;
+        document.getElementById('eb_menu_subtitle').textContent = `Package: ${pkg} | Meal Type: ${meal} | Max 1 extra item per category.`;
+        
+        if (!_ebState.menu_selections || Object.keys(_ebState.menu_selections).length === 0) {
+            const defaults = PACKAGE_DEFAULTS[meal];
+            if (defaults) {
+                _ebState.menu_selections = JSON.parse(JSON.stringify(defaults));
+            } else {
+                _ebState.menu_selections = {};
+            }
+        }
+        
         // Re-render menu options to apply checks
-        renderMenuOptions('eb_menu_container', 'eb');
+        renderMenuOptions('eb_menu_container', 'eb', _ebState.menu_selections);
     }
 };
 
@@ -2098,7 +2323,10 @@ function renderEventBuilder(c) {
             <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;margin-bottom:16px;align-items:end;">
                 <div class="form-group" style="margin-bottom:0;">
                     <label>Venue/Room Name</label>
-                    <input type="text" id="eb_venue_name" placeholder="e.g. Garden">
+                    <select id="eb_venue_name" onchange="document.getElementById('eb_venue_price').value = this.options[this.selectedIndex].getAttribute('data-price') || ''">
+                        <option value="" data-price="">-- Select Venue --</option>
+                        ${store.data.eventRooms.map(r => `<option value="${r.name}" data-price="${r.price_per_day}">${r.name}</option>`).join('')}
+                    </select>
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
                     <label>Price (Rs.)</label>
@@ -2107,9 +2335,6 @@ function renderEventBuilder(c) {
                 <button type="button" class="btn btn-primary" style="height:42px;" onclick="ebAddItem('additional_venues', 'eb_venue_name', 'eb_venue_price')"><i class="fa-solid fa-plus"></i> Add</button>
             </div>
             <div id="eb_additional_venues_list" class="eb-list-container"></div>
-            <div style="display:flex;gap:12px;margin-top:20px;">
-                <button type="button" class="btn btn-primary" onclick="submitEventState('additional_venues')"><i class="fa-solid fa-save" style="margin-right:8px;"></i>Save Venues</button>
-            </div>
         </div>
 
         <div id="eb_tab_Material" class="eb-tab-content" style="display:none;">
@@ -2122,7 +2347,14 @@ function renderEventBuilder(c) {
             <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;margin-bottom:16px;align-items:end;">
                 <div class="form-group" style="margin-bottom:0;">
                     <label>Material Name</label>
-                    <input type="text" id="eb_material_name" placeholder="e.g. Projector">
+                    <select id="eb_material_name" onchange="document.getElementById('eb_material_price').value = this.options[this.selectedIndex].getAttribute('data-price') || ''">
+                        <option value="" data-price="">-- Select Material --</option>
+                        <option value="Projector" data-price="5000">Projector</option>
+                        <option value="Whiteboard" data-price="2000">Whiteboard</option>
+                        <option value="PA System" data-price="10000">PA System</option>
+                        <option value="Flipchart" data-price="1500">Flipchart</option>
+                        <option value="Stage Setup" data-price="25000">Stage Setup</option>
+                    </select>
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
                     <label>Price (Rs.)</label>
@@ -2131,9 +2363,6 @@ function renderEventBuilder(c) {
                 <button type="button" class="btn btn-primary" style="height:42px;" onclick="ebAddItem('materials_added', 'eb_material_name', 'eb_material_price')"><i class="fa-solid fa-plus"></i> Add</button>
             </div>
             <div id="eb_materials_added_list" class="eb-list-container"></div>
-            <div style="display:flex;gap:12px;margin-top:20px;">
-                <button type="button" class="btn btn-primary" onclick="submitEventState('materials_added')"><i class="fa-solid fa-save" style="margin-right:8px;"></i>Save Materials</button>
-            </div>
         </div>
 
         <div id="eb_tab_EventOrder" class="eb-tab-content" style="display:none;">
@@ -2146,7 +2375,14 @@ function renderEventBuilder(c) {
             <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;margin-bottom:16px;align-items:end;">
                 <div class="form-group" style="margin-bottom:0;">
                     <label>Item Name</label>
-                    <input type="text" id="eb_order_name" placeholder="e.g. Beer Bucket">
+                    <select id="eb_order_name" onchange="document.getElementById('eb_order_price').value = this.options[this.selectedIndex].getAttribute('data-price') || ''">
+                        <option value="" data-price="">-- Select Event Order --</option>
+                        <option value="Beer Bucket" data-price="8000">Beer Bucket</option>
+                        <option value="Wine Bottle" data-price="12000">Wine Bottle</option>
+                        <option value="Cocktail Pitcher" data-price="6000">Cocktail Pitcher</option>
+                        <option value="Snack Platter" data-price="4500">Snack Platter</option>
+                        <option value="Tobacco" data-price="3000">Tobacco</option>
+                    </select>
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
                     <label>Price (Rs.)</label>
@@ -2155,9 +2391,6 @@ function renderEventBuilder(c) {
                 <button type="button" class="btn btn-primary" style="height:42px;" onclick="ebAddItem('event_orders', 'eb_order_name', 'eb_order_price')"><i class="fa-solid fa-plus"></i> Add</button>
             </div>
             <div id="eb_event_orders_list" class="eb-list-container"></div>
-            <div style="display:flex;gap:12px;margin-top:20px;">
-                <button type="button" class="btn btn-primary" onclick="submitEventState('event_orders')"><i class="fa-solid fa-save" style="margin-right:8px;"></i>Save Orders</button>
-            </div>
         </div>
 
         <div id="eb_tab_CheckListChange" class="eb-tab-content" style="display:none;">
@@ -2170,14 +2403,18 @@ function renderEventBuilder(c) {
             <div style="display:grid;grid-template-columns:1fr auto;gap:12px;margin-bottom:16px;align-items:end;">
                 <div class="form-group" style="margin-bottom:0;">
                     <label>Task / Change Description</label>
-                    <input type="text" id="eb_checklist_text" placeholder="e.g. Move the buffet table">
+                    <select id="eb_checklist_text">
+                        <option value="">-- Select Task --</option>
+                        <option value="Move the buffet table">Move the buffet table</option>
+                        <option value="Add more chairs">Add more chairs</option>
+                        <option value="Adjust AC temperature">Adjust AC temperature</option>
+                        <option value="Dim lighting">Dim lighting</option>
+                        <option value="Prepare welcome drinks">Prepare welcome drinks</option>
+                    </select>
                 </div>
                 <button type="button" class="btn btn-primary" style="height:42px;" onclick="ebAddChecklist()"><i class="fa-solid fa-plus"></i> Add</button>
             </div>
             <div id="eb_check_list_list" class="eb-list-container"></div>
-            <div style="display:flex;gap:12px;margin-top:20px;">
-                <button type="button" class="btn btn-primary" onclick="submitEventState('check_list')"><i class="fa-solid fa-save" style="margin-right:8px;"></i>Save Check List</button>
-            </div>
         </div>
 
         <div id="eb_tab_EventExtension" class="eb-tab-content" style="display:none;">
@@ -2190,7 +2427,13 @@ function renderEventBuilder(c) {
             <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;margin-bottom:16px;align-items:end;">
                 <div class="form-group" style="margin-bottom:0;">
                     <label>Extension Details</label>
-                    <input type="text" id="eb_extension_name" placeholder="e.g. 2 Extra Hours">
+                    <select id="eb_extension_name" onchange="document.getElementById('eb_extension_price').value = this.options[this.selectedIndex].getAttribute('data-price') || ''">
+                        <option value="" data-price="">-- Select Extension --</option>
+                        <option value="1 Extra Hour" data-price="10000">1 Extra Hour</option>
+                        <option value="2 Extra Hours" data-price="20000">2 Extra Hours</option>
+                        <option value="3 Extra Hours" data-price="30000">3 Extra Hours</option>
+                        <option value="Overnight Extension" data-price="50000">Overnight Extension</option>
+                    </select>
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
                     <label>Price (Rs.)</label>
@@ -2199,9 +2442,6 @@ function renderEventBuilder(c) {
                 <button type="button" class="btn btn-primary" style="height:42px;" onclick="ebAddItem('event_extensions', 'eb_extension_name', 'eb_extension_price')"><i class="fa-solid fa-plus"></i> Add</button>
             </div>
             <div id="eb_event_extensions_list" class="eb-list-container"></div>
-            <div style="display:flex;gap:12px;margin-top:20px;">
-                <button type="button" class="btn btn-primary" onclick="submitEventState('event_extensions')"><i class="fa-solid fa-save" style="margin-right:8px;"></i>Save Extensions</button>
-            </div>
         </div>
 
         <div id="eb_tab_PaymentSummary" class="eb-tab-content" style="display:none;">
@@ -2211,7 +2451,16 @@ function renderEventBuilder(c) {
                     <p style="color:var(--text-muted);font-size:13px;">Breakdown of all event charges.</p>
                 </div>
             </div>
+            <div style="margin-top:20px;display:flex;gap:12px;align-items:center;">
+                <label style="font-weight:bold;min-width:150px;">Advanced Payment (Rs.):</label>
+                <input type="number" id="eb_advance_payment" class="form-control" placeholder="e.g. 50000" onchange="ebRenderPaymentSummary()" onkeyup="ebRenderPaymentSummary()" style="max-width:200px;">
+            </div>
             <div id="eb_payment_summary_content" style="margin-top:20px;"></div>
+            <div style="display:flex;gap:12px;margin-top:20px;">
+                <button type="button" class="btn btn-primary" onclick="submitEntireEventBuilder()" style="width: 100%;">
+                    <i class="fa-solid fa-save" style="margin-right:8px;"></i>Save Entire Event Details
+                </button>
+            </div>
         </div>
     `;
 
@@ -2272,10 +2521,11 @@ function renderEventBuilder(c) {
                 </div>
                 <div class="form-group">
                     <label>Meal Type</label>
-                    <select id="eb_meal_type">
-                        <option>Buffet</option>
-                        <option>Set Menu</option>
-                        <option>A La Carte</option>
+                    <select id="eb_meal_type" onchange="window._applyPackageDefaults()">
+                        <option>Silver Event Package</option>
+                        <option>Gold Event Package</option>
+                        <option>Platinum Event Package</option>
+                        <option>Diamond Event Package</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -2307,11 +2557,6 @@ function renderEventBuilder(c) {
                     <textarea id="eb_description" rows="4" style="resize:vertical;"></textarea>
                 </div>
             </div>
-            <div style="display:flex;gap:12px;margin-top:4px;">
-                <button type="button" class="btn btn-primary" onclick="submitEventBuilder()">
-                    <i class="fa-solid fa-save" style="margin-right:8px;"></i>Save Event Details
-                </button>
-            </div>
         </div>
 
         <div id="eb_tab_Menu" class="eb-tab-content" style="display:none;">
@@ -2322,11 +2567,6 @@ function renderEventBuilder(c) {
                 </div>
             </div>
             <div id="eb_menu_container" style="margin-top:10px;"></div>
-            <div style="display:flex;gap:12px;margin-top:20px;">
-                <button type="button" class="btn btn-primary" onclick="submitEventMenu()">
-                    <i class="fa-solid fa-save" style="margin-right:8px;"></i>Save Menu Details
-                </button>
-            </div>
         </div>
 
         ${otherTabsHtml}
@@ -2355,24 +2595,35 @@ async function submitEventMenu() {
     }
 }
 
-async function submitEventBuilder() {
-    const bookingId = $('eb_booking_no') ? $('eb_booking_no').value : null;
+async function submitEntireEventBuilder() {
+    const bookingId = document.getElementById('eb_booking_no') ? document.getElementById('eb_booking_no').value : null;
+
+    const menuSelections = getMenuSelections('eb');
 
     const data = {
-        pax_size: parseInt($('eb_pax_size').value) || null,
-        function_type: $('eb_function_type').value,
-        event_type: $('eb_event_type').value,
-        package_type: $('eb_package_type').value,
-        meal_type: $('eb_meal_type').value,
-        date_start: $('eb_start_date').value,
-        date_end: $('eb_end_date').value,
-        start_time: $('eb_start_time').value,
-        end_time: $('eb_end_time').value,
-        meal_time: $('eb_meal_time').value,
-        children_count: parseInt($('eb_children_count').value) || null,
-        description: $('eb_description').value,
-        notes: $('eb_description').value,
-        event_name: $('eb_function_type').value || 'New Event'
+        pax_size: parseInt(document.getElementById('eb_pax_size').value) || null,
+        function_type: document.getElementById('eb_function_type').value,
+        event_type: document.getElementById('eb_event_type').value,
+        package_type: document.getElementById('eb_package_type').value,
+        meal_type: document.getElementById('eb_meal_type').value,
+        date_start: document.getElementById('eb_start_date').value,
+        date_end: document.getElementById('eb_end_date').value,
+        start_time: document.getElementById('eb_start_time').value,
+        end_time: document.getElementById('eb_end_time').value,
+        meal_time: document.getElementById('eb_meal_time').value,
+        children_count: parseInt(document.getElementById('eb_children_count').value) || null,
+        description: document.getElementById('eb_description').value,
+        notes: document.getElementById('eb_description').value,
+        event_name: document.getElementById('eb_function_type').value || 'New Event',
+        advance_payment: parseFloat(document.getElementById('eb_advance_payment') ? document.getElementById('eb_advance_payment').value : 0) || 0,
+        
+        menu_selections: JSON.stringify(menuSelections.menu_selections || {}),
+        
+        additional_venues: JSON.stringify(_ebState.additional_venues),
+        materials_added: JSON.stringify(_ebState.materials_added),
+        event_orders: JSON.stringify(_ebState.event_orders),
+        check_list: JSON.stringify(_ebState.check_list),
+        event_extensions: JSON.stringify(_ebState.event_extensions)
     };
 
     if (!data.date_start) {
@@ -2393,7 +2644,7 @@ async function submitEventBuilder() {
             method: method,
             body: JSON.stringify(data)
         });
-        showToast('Event saved successfully!', 'success');
+        showToast('Entire Event Details saved successfully!', 'success');
         await store.refreshData();
         _eventViewState = 'list';
         navigate('/events');
@@ -2967,6 +3218,11 @@ let _currentCalYear = new Date().getFullYear();
 let _currentCalMonth = new Date().getMonth();
 let _calRoomFilter = '';
 
+// Calculate today's string in local time to avoid timezone offset issues
+const today = new Date();
+const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+let _currentSelectedDate = todayStr;
+
 window.changeCalMonth = function(offset) {
     _currentCalMonth += offset;
     if (_currentCalMonth < 0) {
@@ -2981,6 +3237,11 @@ window.changeCalMonth = function(offset) {
 
 window.changeCalRoomFilter = function(value) {
     _calRoomFilter = value;
+    navigate('/calendar');
+};
+
+window.changeSelectedDate = function(dateStr) {
+    _currentSelectedDate = dateStr;
     navigate('/calendar');
 };
 
@@ -3021,6 +3282,17 @@ function renderCalendar(c) {
     const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
+    // Collect all events for mapping dots
+    const events = store.data.reservations || [];
+    const hotelEvents = store.data.hotelReservations || [];
+
+    // Helper to get events for a specific date string
+    const getEventsForDate = (dStr) => {
+        const evs = events.filter(r => r.date_start.startsWith(dStr) || (r.date_end && r.date_end >= dStr && r.date_start <= dStr));
+        const hevs = hotelEvents.filter(r => r.check_in_date <= dStr && r.check_out_date >= dStr);
+        return { evs, hevs };
+    };
+
     let cells = '';
     const now = new Date();
     const todayYear = now.getFullYear();
@@ -3028,7 +3300,7 @@ function renderCalendar(c) {
     const todayDay = now.getDate();
 
     for (let i = 0; i < firstDay; i++) {
-        cells += `<div class="cal-cell empty"></div>`;
+        cells += `<div class="glass-cal-cell empty"></div>`;
     }
 
     for (let d = 1; d <= daysInMonth; d++) {
@@ -3036,144 +3308,174 @@ function renderCalendar(c) {
         const monthStr = String(month + 1).padStart(2, '0');
         const dayStr = String(d).padStart(2, '0');
         const dateKey = `${year}-${monthStr}-${dayStr}`;
+        const isSelected = _currentSelectedDate === dateKey;
 
-        let statusClass = '';
-        let cellContent = '';
-        let tooltipContent = '';
-
-        if (_calRoomFilter !== '') {
-            const selectedRoom = store.data.eventRooms.find(rm => rm.id === parseInt(_calRoomFilter));
-            if (selectedRoom) {
-                const res = getRoomStatusForDate(selectedRoom, dateKey);
-                statusClass = `status-${res.status}`;
-                
-                if (res.status !== 'available') {
-                    tooltipContent = `
-                        <div class="cal-tooltip">
-                            <div class="cal-tooltip-title">
-                                <span>${res.status === 'maintenance' ? 'Maintenance Prep' : 'Booking Details'}</span>
-                                <span style="font-size: 10px; opacity: 0.8; font-weight: normal;">${selectedRoom.name}</span>
-                            </div>
-                            ${res.reservations.map(r => `
-                                <div class="cal-tooltip-detail"><strong>Event:</strong> ${r.event_name}</div>
-                                <div class="cal-tooltip-detail"><strong>Client:</strong> ${r.customer_name}</div>
-                                <div class="cal-tooltip-detail"><strong>Phone:</strong> ${r.customer_phone || '—'}</div>
-                                <div class="cal-tooltip-detail"><strong>Status:</strong> ${r.status} ${res.status === 'maintenance' ? '(Prep Pending)' : ''}</div>
-                                <div class="cal-tooltip-detail"><strong>Guests:</strong> ${r.num_guests || '—'}</div>
-                                <a href="#" class="cal-tooltip-link" onclick="printAgreement(${r.id}); event.stopPropagation();">
-                                    <i class="fa-solid fa-print" style="margin-right:4px;"></i>Print Agreement
-                                </a>
-                            `).join('')}
-                        </div>
-                    `;
-                }
-            }
-        } else {
-            // All rooms dots indicator
-            const roomStatuses = store.data.eventRooms.map(room => ({
-                room,
-                res: getRoomStatusForDate(room, dateKey)
-            }));
-            
-            const occupiedRooms = roomStatuses.filter(rs => rs.res.status !== 'available');
-            
-            cellContent = `
-                <div class="cal-dots-container">
-                    ${roomStatuses.map(rs => `
-                        <div class="cal-dot ${rs.res.status}" title="${rs.room.name}: ${rs.res.status}"></div>
-                    `).join('')}
-                </div>
-            `;
-            
-            if (occupiedRooms.length > 0) {
-                tooltipContent = `
-                    <div class="cal-tooltip">
-                        <div class="cal-tooltip-title">Venue Occupancy</div>
-                        ${occupiedRooms.map(rs => `
-                            <div style="margin-bottom: 8px; border-bottom: 1px dashed rgba(255,255,255,0.05); padding-bottom: 6px;">
-                                <div style="font-weight: bold; color: var(--primary); font-size: 11px; margin-bottom:2px;">
-                                    ${rs.room.name} (${rs.res.status.toUpperCase()})
-                                </div>
-                                ${rs.res.reservations.map(r => `
-                                    <div class="cal-tooltip-detail"><strong>Event:</strong> ${r.event_name}</div>
-                                    <div class="cal-tooltip-detail"><strong>Client:</strong> ${r.customer_name}</div>
-                                    <a href="#" class="cal-tooltip-link" onclick="printAgreement(${r.id}); event.stopPropagation();">
-                                        <i class="fa-solid fa-print" style="margin-right:4px;"></i>Print Agreement
-                                    </a>
-                                `).join('')}
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-            }
-        }
-
+        const { evs, hevs } = getEventsForDate(dateKey);
+        const hasEvents = evs.length > 0 || hevs.length > 0;
+        
+        let cellClass = 'glass-cal-cell';
+        if (isToday) cellClass += ' today';
+        if (isSelected) cellClass += ' selected';
+        
         cells += `
-            <div class="cal-cell ${isToday ? 'today' : ''} ${statusClass}">
-                <div style="z-index: 2;">${d}</div>
-                ${cellContent}
-                ${tooltipContent}
+            <div class="${cellClass}" onclick="changeSelectedDate('${dateKey}')">
+                <div class="glass-cal-num">${d}</div>
+                ${hasEvents ? '<div class="glass-cal-dot"></div>' : ''}
             </div>
         `;
     }
 
-    const thisMonthRes = store.data.reservations.filter(r => {
-        const d = new Date(r.date_start);
-        const matchesDate = d.getFullYear() === year && d.getMonth() === month;
-        const matchesRoom = _calRoomFilter === '' || r.room_id === parseInt(_calRoomFilter);
-        return matchesDate && matchesRoom;
-    });
+    // Right Panel: Timeline for _currentSelectedDate
+    const { evs: selectedEvs, hevs: selectedHevs } = getEventsForDate(_currentSelectedDate);
+    
+    // Format the selected date nicely
+    const selectedDateObj = new Date(_currentSelectedDate + 'T00:00:00');
+    const displayDate = dayNames[selectedDateObj.getDay()] + ', ' + monthNames[selectedDateObj.getMonth()] + ' ' + selectedDateObj.getDate() + ', ' + selectedDateObj.getFullYear();
+
+    let timelineHTML = '';
+    if (selectedEvs.length === 0 && selectedHevs.length === 0) {
+        timelineHTML = `
+            <div style="text-align:center; padding: 60px 20px; opacity: 0.5;">
+                <i class="fa-regular fa-calendar-xmark" style="font-size: 48px; margin-bottom: 16px;"></i>
+                <h3 style="margin:0;">No Events Scheduled</h3>
+                <p style="font-size: 13px; margin-top: 8px;">Take a breather, the coast is clear today!</p>
+            </div>
+        `;
+    } else {
+        selectedEvs.forEach(r => {
+            let statusColor = '#6b7280';
+            if (r.status === 'Confirmed') statusColor = '#10b981';
+            else if (r.status === 'Pending') statusColor = '#f59e0b';
+            else if (r.status === 'Pending Finance') statusColor = '#0ea5e9';
+            else if (r.status === 'Completed') statusColor = '#8b5cf6';
+            else if (r.status === 'Cancelled') statusColor = '#ef4444';
+
+            const roomName = r.room_name || (store.data.eventRooms.find(rm => rm.id === r.room_id)?.name) || 'Unassigned Venue';
+            
+            timelineHTML += `
+                <div class="glass-timeline-card" style="border-left: 4px solid ${statusColor};">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div>
+                            <div style="font-size: 11px; color: ${statusColor}; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">
+                                ${r.status}
+                            </div>
+                            <h3 style="margin: 0 0 4px 0; font-size: 18px; color: #fff;">${r.event_name || 'Event Booking'}</h3>
+                            <div style="font-size: 13px; color: var(--text-muted); display:flex; gap: 12px; margin-bottom: 12px;">
+                                <span><i class="fa-solid fa-location-dot" style="margin-right:4px;"></i>${roomName}</span>
+                                <span><i class="fa-regular fa-clock" style="margin-right:4px;"></i>${r.start_time || 'All Day'} - ${r.end_time || ''}</span>
+                                <span><i class="fa-solid fa-users" style="margin-right:4px;"></i>${r.num_guests || 0} Pax</span>
+                            </div>
+                            <div style="font-size: 13px; color: #cbd5e1;">
+                                <i class="fa-regular fa-user" style="margin-right:6px;"></i>${r.customer_name} &bull; ${r.customer_phone || 'N/A'}
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <button class="btn btn-sm btn-outline" onclick="openReservationModal(${r.id})" title="Edit Booking">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button class="btn btn-sm btn-primary" onclick="viewAgreement(${r.id})" title="View Agreement">
+                                <i class="fa-solid fa-file-contract"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        selectedHevs.forEach(r => {
+            let statusColor = '#6b7280';
+            if (r.status === 'Confirmed') statusColor = '#10b981';
+            else if (r.status === 'Pending') statusColor = '#f59e0b';
+            else if (r.status === 'Pending Finance') statusColor = '#0ea5e9';
+            else if (r.status === 'Completed') statusColor = '#8b5cf6';
+            
+            timelineHTML += `
+                <div class="glass-timeline-card" style="border-left: 4px solid ${statusColor};">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div>
+                            <div style="font-size: 11px; color: ${statusColor}; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">
+                                ${r.status} (Hotel)
+                            </div>
+                            <h3 style="margin: 0 0 4px 0; font-size: 18px; color: #fff;">Hotel Stay</h3>
+                            <div style="font-size: 13px; color: var(--text-muted); display:flex; gap: 12px; margin-bottom: 12px;">
+                                <span><i class="fa-solid fa-bed" style="margin-right:4px;"></i>Room ${r.room_number || r.room_id}</span>
+                                <span><i class="fa-regular fa-calendar" style="margin-right:4px;"></i>${r.check_in_date} to ${r.check_out_date}</span>
+                            </div>
+                            <div style="font-size: 13px; color: #cbd5e1;">
+                                <i class="fa-regular fa-user" style="margin-right:6px;"></i>${r.customer_name} &bull; ${r.customer_phone || 'N/A'}
+                            </div>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-outline" onclick="openHotelBookingModal(${r.id})" title="Edit Hotel Booking">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+    }
 
     c.innerHTML = `
-    <div style="display:grid;grid-template-columns:420px 1fr;gap:24px;align-items:start;">
+    <style>
+        .glass-calendar-layout { display: grid; grid-template-columns: 360px 1fr; gap: 24px; align-items: start; }
+        .glass-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; }
+        .glass-cal-header { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 10px; }
+        .glass-cal-cell { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 12px; cursor: pointer; transition: all 0.2s ease; background: rgba(255,255,255,0.02); position: relative; }
+        .glass-cal-cell:hover:not(.empty) { background: rgba(255,255,255,0.08); transform: translateY(-2px); }
+        .glass-cal-cell.empty { background: transparent; cursor: default; }
+        .glass-cal-cell.today { border: 1px solid var(--primary); }
+        .glass-cal-cell.selected { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(10, 132, 255, 0.4); }
+        .glass-cal-num { font-size: 14px; font-weight: 500; }
+        .glass-cal-dot { width: 4px; height: 4px; border-radius: 50%; background: #10b981; margin-top: 4px; box-shadow: 0 0 6px #10b981; }
+        .glass-cal-cell.selected .glass-cal-dot { background: #fff; box-shadow: none; }
+        
+        .glass-timeline-card { background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px; margin-bottom: 16px; transition: all 0.2s ease; }
+        .glass-timeline-card:hover { transform: translateX(4px); background: rgba(30, 41, 59, 0.8); }
+    </style>
+
+    <div class="glass-calendar-layout">
         <div class="card">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-                <div style="display:flex;gap:8px;align-items:center;">
-                    <button class="btn btn-outline btn-sm" onclick="changeCalMonth(-1)" style="padding: 6px 10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+                <h3 style="margin: 0; font-size: 18px;">${monthNames[month]} ${year}</h3>
+                <div style="display:flex; gap:4px;">
+                    <button class="btn btn-outline btn-sm" onclick="changeCalMonth(-1)" style="padding: 6px 10px; border-radius: 8px;">
                         <i class="fa-solid fa-chevron-left"></i>
                     </button>
-                    <h3 style="margin: 0; min-width: 140px; text-align: center; font-size: 16px;">${monthNames[month]} ${year}</h3>
-                    <button class="btn btn-outline btn-sm" onclick="changeCalMonth(1)" style="padding: 6px 10px;">
+                    <button class="btn btn-outline btn-sm" onclick="changeCalMonth(1)" style="padding: 6px 10px; border-radius: 8px;">
                         <i class="fa-solid fa-chevron-right"></i>
                     </button>
                 </div>
-                <div class="form-group" style="margin-bottom:0; width:150px;">
-                    <select id="cal_room_filter" onchange="changeCalRoomFilter(this.value)" style="padding: 6px 12px; font-size:12px; background: rgba(255,255,255,0.05); color:#fff; border-radius:8px; border:1px solid var(--glass-border); width:100%;">
-                        <option value="">-- All Venues --</option>
-                        ${store.data.eventRooms.map(rm => `<option value="${rm.id}" ${parseInt(_calRoomFilter) === rm.id ? 'selected' : ''}>${rm.name}</option>`).join('')}
-                    </select>
-                </div>
             </div>
             
-            <div class="cal-grid" style="margin-bottom:8px;">
-                ${dayNames.map(d => `<div class="cal-header-cell">${d}</div>`).join('')}
+            <div class="glass-cal-grid glass-cal-header">
+                ${dayNames.map(d => `<div>${d}</div>`).join('')}
             </div>
-            <div class="cal-grid" style="margin-top:0;">${cells}</div>
+            <div class="glass-cal-grid">
+                ${cells}
+            </div>
             
-            <div style="display:flex; flex-wrap:wrap; gap:12px 16px; margin-top:20px; padding-top:16px; border-top:1px solid var(--glass-border);">
-                <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);">
-                    <div style="width:10px;height:10px;border-radius:3px;background:rgba(16, 185, 129, 0.2);border:1px solid #10b981;"></div> Available
-                </div>
-                <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);">
-                    <div style="width:10px;height:10px;border-radius:3px;background:rgba(239, 68, 68, 0.2);border:1px solid #ef4444;"></div> Booked
-                </div>
-                <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);">
-                    <div style="width:10px;height:10px;border-radius:3px;background:rgba(245, 158, 11, 0.2);border:1px solid #f59e0b;"></div> Pending
-                </div>
-                <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);">
-                    <div style="width:10px;height:10px;border-radius:3px;background:rgba(249, 115, 22, 0.2);border:1px solid #f97316;"></div> Buffer Prep
-                </div>
+            <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--glass-border);">
+                <button class="btn btn-primary" style="width: 100%; border-radius: 12px; justify-content:center;" onclick="changeSelectedDate('${todayStr}')">
+                    Jump to Today
+                </button>
             </div>
         </div>
 
-        <div class="card">
-            <div class="section-header">
+        <div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:24px; padding-bottom: 12px; border-bottom: 1px solid var(--glass-border);">
                 <div>
-                    <h2>Bookings & Statuses</h2>
-                    <p>${thisMonthRes.length} item(s) found for selected filter</p>
+                    <h2 style="margin: 0 0 4px 0; font-size: 24px;">Schedule</h2>
+                    <p style="margin: 0; color: var(--primary); font-weight: 500;">${displayDate}</p>
+                </div>
+                <div style="font-size: 13px; color: var(--text-muted);">
+                    ${selectedEvs.length + selectedHevs.length} Event(s)
                 </div>
             </div>
-            ${reservationTable(thisMonthRes, {})}
+            
+            <div style="padding-bottom: 40px;">
+                ${timelineHTML}
+            </div>
         </div>
     </div>`;
 }
@@ -3290,7 +3592,117 @@ function renderSettings(c) {
             <i class="fa-solid fa-circle-info" style="color:var(--primary);margin-right:6px;"></i>
             Both modules share the same <code style="color:var(--primary);">pos_data.db</code> SQLite file. All CRUD operations are persisted in real-time.
         </p>
+    </div>
+    
+    <!-- User Role Management Card -->
+    <div class="card" style="margin-top: 24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+            <div>
+                <h3 style="margin:0;"><i class="fa-solid fa-users-gear" style="color:var(--primary);margin-right:10px;"></i>User & Role Management</h3>
+                <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Manage system access and assign roles to staff members.</p>
+            </div>
+            <button class="btn btn-primary" onclick="openCreateUserModal()">
+                <i class="fa-solid fa-user-plus" style="margin-right: 8px;"></i>Create User
+            </button>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th style="text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${(store.data.users || []).map(u => `
+                        <tr>
+                            <td>#${u.id}</td>
+                            <td>${u.name}</td>
+                            <td><strong>${u.username}</strong></td>
+                            <td><span class="badge" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid #10b981;">${u.role.toUpperCase()}</span></td>
+                            <td style="text-align: right;">
+                                <button class="btn btn-outline btn-sm" onclick="deleteUser(${u.id})" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.2);" title="Delete User">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                    ${!(store.data.users && store.data.users.length) ? '<tr><td colspan="5" style="text-align:center;">No users found</td></tr>' : ''}
+                </tbody>
+            </table>
+        </div>
     </div>`;
+}
+
+function openCreateUserModal() {
+    $('newUser_name').value = '';
+    $('newUser_username').value = '';
+    $('newUser_password').value = '';
+    $('newUser_role').value = 'admin';
+    $('createUserModal').style.display = 'flex';
+}
+
+async function saveNewUser() {
+    const name = $('newUser_name').value.trim();
+    const username = $('newUser_username').value.trim();
+    const password = $('newUser_password').value;
+    const role = $('newUser_role').value;
+
+    if (!name || !username || !password || !role) {
+        showToast('Please fill all fields', 'danger');
+        return;
+    }
+    
+    if (username.length < 3) {
+        showToast('Username must be at least 3 characters', 'danger');
+        return;
+    }
+    if (password.length < 4) {
+        showToast('Password must be at least 4 characters', 'danger');
+        return;
+    }
+
+    try {
+        const res = await store.fetchAPI('/users', {
+            method: 'POST',
+            body: JSON.stringify({ name, username, password, role })
+        });
+        
+        if (!res.ok) {
+            const err = await res.json();
+            showToast(err.error || 'Failed to create user', 'danger');
+            return;
+        }
+        
+        $('createUserModal').style.display = 'none';
+        showToast('User created successfully!', 'success');
+        await store.refreshData();
+    } catch (e) {
+        console.error(e);
+        showToast('Error creating user. You may not have permission.', 'danger');
+    }
+}
+
+async function deleteUser(id) {
+    if (!confirm('Are you sure you want to completely delete this user? This cannot be undone.')) return;
+    
+    try {
+        const res = await store.fetchAPI('/users/' + id, { method: 'DELETE' });
+        if (!res.ok) {
+            const err = await res.json();
+            showToast(err.error || 'Failed to delete user', 'danger');
+            return;
+        }
+        showToast('User deleted successfully', 'info');
+        await store.refreshData();
+    } catch (e) {
+        console.error(e);
+        showToast('Error deleting user. You may not have permission.', 'danger');
+    }
 }
 
 async function saveSettings() {
@@ -3314,18 +3726,18 @@ async function saveSettings() {
 // FINANCE APPROVAL VIEW
 // ═══════════════════════════════════════════════════════════════════════════════
 function renderFinance(c) {
-    const pendingFinance = store.data.reservations.filter(r => r.status === 'Pending Finance');
-    const pendingHotelCheckouts = (store.data.hotelBookings || []).filter(r => r.status === 'Pending Checkout');
+    const pendingFinance = store.data.reservations.filter(r => (r.finance_approved === 0 || r.finance_approved == null) && r.status !== 'Cancelled');
+    const pendingHotelCheckouts = (store.data.hotelBookings || []).filter(r => (r.finance_approved === 0 || r.finance_approved == null) && r.status !== 'Cancelled');
     
     c.innerHTML = `
     <div class="header">
         <div class="header-title">
             <h1 class="page-title"><i class="fa-solid fa-file-invoice-dollar" style="color:var(--primary);margin-right:10px;"></i>Finance Approvals</h1>
-            <p style="color:var(--text-muted);font-size:14px;margin-top:5px;">Approve advance payments and hotel checkouts.</p>
+            <p style="color:var(--text-muted);font-size:14px;margin-top:5px;">Approve new reservations for payment processing.</p>
         </div>
     </div>
     
-    <h3 style="margin-top: 20px;">Event Advance Approvals</h3>
+    <h3 style="margin-top: 20px;">Events Pending Approval</h3>
     <div class="card" style="margin-top:10px;">
         ${pendingFinance.length === 0 ? `
             <div class="empty-state">
@@ -3345,10 +3757,7 @@ function renderFinance(c) {
                                 <td>${formatDate(r.date_start)} ${r.date_end ? 'to ' + formatDate(r.date_end) : ''}</td>
                                 <td><span style="color:var(--primary);font-weight:700;">${formatCurrency(r.total_price)}</span></td>
                                 <td>
-                                    <button class="btn btn-outline btn-sm" onclick="checkoutReservation(${r.id})" style="border-color:#10b981; color:#10b981; margin-right:5px;" title="View Receipt">
-                                        <i class="fa-solid fa-file-invoice"></i> Receipt
-                                    </button>
-                                    <button class="btn btn-primary btn-sm" onclick="approveFinance(${r.id})">
+                                    <button class="btn btn-primary btn-sm" onclick="quickApproveEventFinance(${r.id})">
                                         <i class="fa-solid fa-check" style="margin-right:5px;"></i>Approve
                                     </button>
                                 </td>
@@ -3360,7 +3769,7 @@ function renderFinance(c) {
         `}
     </div>
 
-    <h3 style="margin-top: 30px;">Hotel Checkouts Pending Approval</h3>
+    <h3 style="margin-top: 30px;">Hotel Bookings Pending Approval</h3>
     <div class="card" style="margin-top:10px;">
         ${pendingHotelCheckouts.length === 0 ? `
             <div class="empty-state">
@@ -3382,8 +3791,8 @@ function renderFinance(c) {
                                 <td>${r.check_out_date}</td>
                                 <td><span style="color:var(--primary);font-weight:700;">${formatCurrency(r.total_price)}</span></td>
                                 <td>
-                                    <button class="btn btn-success btn-sm" onclick="approveHotelCheckout(${r.id})">
-                                        <i class="fa-solid fa-check-double" style="margin-right:5px;"></i>Finalize Checkout
+                                    <button class="btn btn-success btn-sm" onclick="quickApproveHotelFinance(${r.id})">
+                                        <i class="fa-solid fa-check" style="margin-right:5px;"></i>Approve
                                     </button>
                                 </td>
                             </tr>
@@ -3395,6 +3804,34 @@ function renderFinance(c) {
     </div>
     `;
 }
+
+window.quickApproveEventFinance = function(id) {
+    showConfirmModal("Approve this event booking to proceed to Payments & Invoices?", async () => {
+        try {
+            const res = await store.fetchAPI('/reservations/' + id + '/finance_approve', { method: 'POST' });
+            if (!res.ok) throw new Error("Failed to approve booking");
+            showToast("Event Booking Approved Successfully!", "success");
+            await store.refreshData();
+            navigate('/finance');
+        } catch (err) {
+            showToast(err.message, "error");
+        }
+    });
+};
+
+window.quickApproveHotelFinance = function(id) {
+    showConfirmModal("Approve this hotel booking to proceed to Payments & Invoices?", async () => {
+        try {
+            const res = await store.fetchAPI('/hotel-reservations/' + id + '/finance_approve', { method: 'POST' });
+            if (!res.ok) throw new Error("Failed to approve booking");
+            showToast("Hotel Booking Approved Successfully!", "success");
+            await store.refreshData();
+            navigate('/finance');
+        } catch (err) {
+            showToast(err.message, "error");
+        }
+    });
+};
 
 window.approveHotelCheckout = function(id) {
     showConfirmModal("Approve this checkout and mark the room as available?", async () => {
@@ -3916,7 +4353,12 @@ async function checkoutHotelBooking(id) {
     document.getElementById('hchk_room').textContent = roomName;
     document.getElementById('hchk_dates').textContent = booking.check_in_date + ' to ' + booking.check_out_date;
 
-    let itemsHtml = `<tr><td style="padding:8px 0;">Hotel Room Accommodation</td><td style="padding:8px 0; text-align:right;">Rs. ${(booking.total_price || 0).toFixed(2)}</td></tr>`;
+    let itemsHtml = `<tr style="border-bottom:1px solid #eee; font-size:13px;">
+        <td style="padding:10px;">Hotel Room Accommodation</td>
+        <td style="padding:10px; text-align:center;">1</td>
+        <td style="padding:10px; text-align:right;">${sym()}${(booking.total_price || 0).toFixed(2)}</td>
+        <td style="padding:10px; text-align:right;">${sym()}${(booking.total_price || 0).toFixed(2)}</td>
+    </tr>`;
     
     let posTotal = 0;
     try {
@@ -3925,12 +4367,14 @@ async function checkoutHotelBooking(id) {
         if (orders && orders.length > 0) {
             orders.forEach(o => {
                 posTotal += o.total;
-                itemsHtml += `<tr>
-                    <td style="padding:8px 0; color:#555;">
-                        <small>Restaurant Order #${o.id} (${o.date.split('T')[0]})</small><br>
-                        <small style="color:#888;">${(o.items || []).map(i => i.qty + 'x ' + i.name).join(', ')}</small>
+                itemsHtml += `<tr style="border-bottom:1px solid #eee; font-size:13px;">
+                    <td style="padding:10px; color:#555;">
+                        Restaurant Order #${o.id} (${o.date.split('T')[0]})
+                        <div style="font-size:11px; color:#888; margin-top:4px;">${(o.items || []).map(i => i.qty + 'x ' + i.name).join(', ')}</div>
                     </td>
-                    <td style="padding:8px 0; text-align:right; color:#555;">Rs. ${o.total.toFixed(2)}</td>
+                    <td style="padding:10px; text-align:center;">1</td>
+                    <td style="padding:10px; text-align:right; color:#555;">${sym()}${o.total.toFixed(2)}</td>
+                    <td style="padding:10px; text-align:right; color:#555;">${sym()}${o.total.toFixed(2)}</td>
                 </tr>`;
             });
         }
@@ -4012,21 +4456,6 @@ window.showConfirmModal = function(message, onConfirm) {
     const btnContainer = document.createElement('div');
     btnContainer.style.display = 'flex';
     btnContainer.style.gap = '12px';
-    btnContainer.style.justifyContent = 'center';
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'btn btn-outline';
-    cancelBtn.textContent = 'Cancel';
-    cancelBtn.onclick = () => document.body.removeChild(overlay);
-
-    const confirmBtn = document.createElement('button');
-    confirmBtn.className = 'btn btn-primary';
-    confirmBtn.textContent = 'Confirm';
-    confirmBtn.onclick = () => {
-        document.body.removeChild(overlay);
-        onConfirm();
-    };
-
     btnContainer.appendChild(cancelBtn);
     btnContainer.appendChild(confirmBtn);
 
@@ -4047,4 +4476,178 @@ function printHotelCheckoutInvoice() {
     
     // reload slightly to ensure events bind back if needed, or close modal
     location.reload();
+}
+
+// ─── Event Agreement Logic ────────────────────────────────────────────────
+async function viewAgreement(id) {
+    const r = store.data.reservations.find(res => res.id === id);
+    if (!r) return;
+
+    document.getElementById('agr_booking_no').innerText = r.booking_no || 'BKG-' + String(r.id).padStart(4, '0');
+    document.getElementById('agr_date_issued').innerText = new Date().toLocaleDateString();
+    document.getElementById('agr_customer_name').innerText = r.customer_name || 'N/A';
+    document.getElementById('agr_customer_phone').innerText = r.customer_phone || 'N/A';
+    
+    document.getElementById('agr_event_name').innerText = r.event_name || 'N/A';
+    document.getElementById('agr_function_type').innerText = r.function_type || 'N/A';
+    document.getElementById('agr_event_date').innerText = formatDate(r.date_start);
+    document.getElementById('agr_start_time').innerText = r.start_time || 'N/A';
+    document.getElementById('agr_end_time').innerText = r.end_time || 'N/A';
+    
+    let roomName = 'N/A';
+    if (r.room_id) {
+        const room = store.data.eventRooms.find(rm => rm.id == r.room_id);
+        if (room) roomName = room.name;
+    }
+    document.getElementById('agr_room_name').innerText = roomName;
+    document.getElementById('agr_additional_venues').innerText = r.additional_venues || 'None';
+    
+    document.getElementById('agr_pax_size').innerText = r.pax_size || r.num_guests || 'N/A';
+    document.getElementById('agr_package_type').innerText = r.package_type || 'N/A';
+    
+    let menuText = 'None';
+    if (r.menu_selections && r.menu_selections !== 'null') {
+        let obj = r.menu_selections;
+        try {
+            if (typeof obj === 'string') obj = JSON.parse(obj);
+            if (typeof obj === 'string') obj = JSON.parse(obj);
+            if (typeof obj === 'object' && obj !== null) {
+                menuText = Object.entries(obj).map(([cat, items]) => {
+                    return `<div><strong>${cat}:</strong> ${Array.isArray(items) ? items.join(', ') : items}</div>`;
+                }).join('');
+            }
+        } catch(e) {}
+    }
+    document.getElementById('agr_menu_selections').innerHTML = menuText;
+    
+    let special = [];
+    if (r.materials_added) special.push(`<strong>Materials:</strong> ${r.materials_added}`);
+    if (r.event_orders) special.push(`<strong>Orders:</strong> ${r.event_orders}`);
+    if (r.event_extensions) special.push(`<strong>Extensions:</strong> ${r.event_extensions}`);
+    if (r.check_list) special.push(`<strong>Check List:</strong> ${r.check_list}`);
+    document.getElementById('agr_special_reqs').innerHTML = special.length > 0 ? special.join('<br>') : 'None';
+    
+    document.getElementById('agr_total_price').innerText = store.settings.currency_symbol + ' ' + Number(r.total_price || 0).toLocaleString(undefined, {minimumFractionDigits:2});
+    document.getElementById('agr_advance').innerText = store.settings.currency_symbol + ' ' + Number(r.advance_payment || 0).toLocaleString(undefined, {minimumFractionDigits:2});
+    const balance = (Number(r.total_price || 0) - Number(r.advance_payment || 0));
+    document.getElementById('agr_balance').innerText = store.settings.currency_symbol + ' ' + balance.toLocaleString(undefined, {minimumFractionDigits:2});
+    
+    openModal('agreementModal');
+}
+
+function printAgreement() {
+    const printContent = document.getElementById('agreementPrintArea').innerHTML;
+    const originalContent = document.body.innerHTML;
+    
+    document.body.innerHTML = printContent;
+    window.print();
+    document.body.innerHTML = originalContent;
+    
+    location.reload();
+}
+
+
+// --- Kitchen Prep ---
+function renderKitchenPrep(c) {
+    const events = (store.data.reservations || []).filter(r => 
+        (r.status === 'Confirmed' || r.status === 'Pending') && 
+        r.event_orders && r.event_orders.trim() !== '' && r.event_orders !== '{}'
+    );
+    
+    let html = `
+    <div class="section-header">
+        <div>
+            <h2><i class="fa-solid fa-kitchen-set" style="color:var(--primary);margin-right:10px;"></i>Kitchen Prep Dashboard</h2>
+            <p>Upcoming event menus to prepare</p>
+        </div>
+        <div>
+            <button class="btn btn-outline" onclick="store.refreshData()"><i class="fa-solid fa-rotate-right" style="margin-right:8px;"></i>Refresh</button>
+        </div>
+    </div>
+    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px;">
+    `;
+    
+    if (events.length === 0) {
+        html += `<div style="grid-column: 1 / -1; text-align:center; padding: 40px; color: var(--text-muted);">
+            <i class="fa-solid fa-clipboard-check" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
+            <h3>No upcoming event menus</h3>
+            <p>All clear in the kitchen!</p>
+        </div>`;
+    } else {
+        events.sort((a, b) => new Date(a.date_start) - new Date(b.date_start)).forEach(ev => {
+            let orders = {};
+            try { orders = JSON.parse(ev.event_orders || '{}'); } catch(e){}
+            
+            let orderHtml = '';
+            for (const category in orders) {
+                if (orders[category].length > 0) {
+                    orderHtml += `<div style="margin-top: 12px; margin-bottom: 4px; font-weight: 600; font-size: 13px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--glass-border); padding-bottom: 4px;">${category}</div>`;
+                    orderHtml += `<ul style="margin:0; padding-left: 20px; font-size: 13px;">`;
+                    orders[category].forEach(item => {
+                        orderHtml += `<li>${item}</li>`;
+                    });
+                    orderHtml += `</ul>`;
+                }
+            }
+            
+            const ks = ev.kitchen_status || 'Pending';
+            let ksBadge = `<span class="badge" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid #f59e0b;">PENDING</span>`;
+            if (ks === 'Preparing') ksBadge = `<span class="badge" style="background: rgba(14, 165, 233, 0.1); color: #0ea5e9; border: 1px solid #0ea5e9;">PREPARING</span>`;
+            if (ks === 'Ready') ksBadge = `<span class="badge" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid #10b981;">READY</span>`;
+
+            html += `
+            <div class="card" style="display:flex; flex-direction:column;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 12px;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 18px;">${ev.event_name || 'Event #' + ev.id}</h3>
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                            <i class="fa-regular fa-calendar" style="margin-right: 4px;"></i>${ev.date_start}
+                        </div>
+                    </div>
+                    <div>${ksBadge}</div>
+                </div>
+                
+                <div style="display:flex; gap: 10px; margin-bottom: 16px;">
+                    <div style="background: var(--bg-color); padding: 8px 12px; border-radius: 8px; flex: 1; text-align:center;">
+                        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Guests</div>
+                        <div style="font-weight: 700; font-size: 16px;">${ev.pax_size || ev.num_guests || 0}</div>
+                    </div>
+                    <div style="background: var(--bg-color); padding: 8px 12px; border-radius: 8px; flex: 1; text-align:center;">
+                        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Meal Time</div>
+                        <div style="font-weight: 700; font-size: 16px;">${ev.meal_time || 'N/A'}</div>
+                    </div>
+                </div>
+                
+                <div style="flex: 1; overflow-y: auto; max-height: 200px; padding-right: 8px; margin-bottom: 16px; background: var(--bg-color); border-radius: 8px; padding: 12px;">
+                    <div style="font-weight: 700; font-size: 14px; margin-bottom: 8px;"><i class="fa-solid fa-bell-concierge" style="margin-right: 6px; color:var(--primary);"></i>Menu Orders</div>
+                    ${orderHtml || '<div style="font-size: 12px; color: var(--text-muted); font-style: italic;">No specific items recorded.</div>'}
+                </div>
+                
+                <div style="display:flex; gap: 8px; margin-top: auto; border-top: 1px solid var(--glass-border); padding-top: 16px;">
+                    <button class="btn btn-outline" style="flex:1; border-color: #0ea5e9; color: #0ea5e9;" onclick="updateKitchenStatus(${ev.id}, 'Preparing')" ${ks === 'Preparing' ? 'disabled' : ''}>
+                        Preparing
+                    </button>
+                    <button class="btn btn-primary" style="flex:1; background: #10b981;" onclick="updateKitchenStatus(${ev.id}, 'Ready')" ${ks === 'Ready' ? 'disabled' : ''}>
+                        <i class="fa-solid fa-check" style="margin-right: 6px;"></i>Ready
+                    </button>
+                </div>
+            </div>`;
+        });
+    }
+    html += `</div>`;
+    c.innerHTML = html;
+}
+
+async function updateKitchenStatus(id, status) {
+    try {
+        const res = await store.fetchAPI('/reservations/' + id + '/kitchen-status', {
+            method: 'PUT',
+            body: JSON.stringify({ kitchen_status: status })
+        });
+        if (!res.ok) throw new Error('Failed to update status');
+        showToast('Kitchen status updated to ' + status, 'success');
+        store.refreshData();
+    } catch (err) {
+        showToast('Error updating status', 'danger');
+    }
 }

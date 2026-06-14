@@ -11,7 +11,12 @@ const io = new Server(server, { cors: { origin: '*' } });
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '/'))); // Serve static files from root
+const PORT = process.env.PORT || 301;
+if (PORT == 302) {
+    app.use(express.static(path.join(__dirname, '/reservation-app')));
+} else {
+    app.use(express.static(path.join(__dirname, '/')));
+}
 
 // --- DATABASE HELPERS (PROMISES) ---
 const runQuery = (query, params = []) => new Promise((resolve, reject) => {
@@ -860,7 +865,7 @@ app.post('/api/event-rooms', authorize(['admin', 'manager']), async (req, res) =
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.put('/api/event-rooms/:id', authorize(['admin', 'manager']), async (req, res) => {
+app.put('/api/event-rooms/:id', authorize(['admin', 'manager', 'cashier']), async (req, res) => {
     const { name, capacity, price_per_day, type, status, setup_buffer_hours, cleanup_buffer_hours } = req.body;
     try {
         await runQuery("UPDATE event_rooms SET name=?, capacity=?, price_per_day=?, type=?, status=?, setup_buffer_hours=?, cleanup_buffer_hours=? WHERE id=?",
@@ -885,23 +890,25 @@ app.get('/api/reservations', async (req, res) => {
 });
 
 app.post('/api/reservations', async (req, res) => {
-    const { booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, menu_selections } = req.body;
+    const { booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, menu_selections, pax_size, function_type, event_type, package_type, meal_type, start_time, end_time, meal_time, children_count, description, advance_payment, additional_venues, materials_added, event_orders, check_list, event_extensions } = req.body;
     try {
         const result = await runQuery(
-            "INSERT INTO reservations (booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status || 'Pending', total_price || 0, menu_selections ? JSON.stringify(menu_selections) : null]
+            `INSERT INTO reservations (booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, description, menu_selections, pax_size, function_type, event_type, package_type, meal_type, start_time, end_time, meal_time, children_count, advance_payment, additional_venues, materials_added, event_orders, check_list, event_extensions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status || 'Pending', total_price || 0, description, menu_selections ? JSON.stringify(menu_selections) : null, pax_size, function_type, event_type, package_type, meal_type, start_time, end_time, meal_time, children_count, advance_payment || 0, additional_venues, materials_added, event_orders, check_list, event_extensions]
         );
+        io.emit('data_changed', 'reservations');
         res.json({ id: result.lastID });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.put('/api/reservations/:id', async (req, res) => {
-    const { event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, menu_selections } = req.body;
+    const { event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, menu_selections, pax_size, function_type, event_type, package_type, meal_type, start_time, end_time, meal_time, children_count, description, advance_payment, additional_venues, materials_added, event_orders, check_list, event_extensions } = req.body;
     try {
         await runQuery(
-            "UPDATE reservations SET event_name=?, customer_name=?, customer_phone=?, room_id=?, date_start=?, date_end=?, num_guests=?, status=?, total_price=?, description=? WHERE id=?",
-            [event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, menu_selections ? JSON.stringify(menu_selections) : null, req.params.id]
+            `UPDATE reservations SET event_name=?, customer_name=?, customer_phone=?, room_id=?, date_start=?, date_end=?, num_guests=?, status=?, total_price=?, description=?, menu_selections=?, pax_size=?, function_type=?, event_type=?, package_type=?, meal_type=?, start_time=?, end_time=?, meal_time=?, children_count=?, advance_payment=?, additional_venues=?, materials_added=?, event_orders=?, check_list=?, event_extensions=? WHERE id=?`,
+            [event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, description, menu_selections ? JSON.stringify(menu_selections) : null, pax_size, function_type, event_type, package_type, meal_type, start_time, end_time, meal_time, children_count, advance_payment || 0, additional_venues, materials_added, event_orders, check_list, event_extensions, req.params.id]
         );
+        io.emit('data_changed', 'reservations');
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -909,6 +916,7 @@ app.put('/api/reservations/:id', async (req, res) => {
 app.delete('/api/reservations/:id', authorize(['admin', 'manager']), async (req, res) => {
     try {
         await runQuery("DELETE FROM reservations WHERE id = ?", [req.params.id]);
+        io.emit('data_changed', 'reservations');
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -916,6 +924,7 @@ app.delete('/api/reservations/:id', authorize(['admin', 'manager']), async (req,
 app.patch('/api/reservations/:id/status', async (req, res) => {
     try {
         await runQuery("UPDATE reservations SET status = ? WHERE id = ?", [req.body.status, req.params.id]);
+        io.emit('data_changed', 'reservations');
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -923,6 +932,15 @@ app.patch('/api/reservations/:id/status', async (req, res) => {
 app.patch('/api/reservations/:id/signature', async (req, res) => {
     try {
         await runQuery("UPDATE reservations SET signature_data = ? WHERE id = ?", [req.body.signature_data, req.params.id]);
+        io.emit('data_changed', 'reservations');
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/reservations/:id/kitchen-status', async (req, res) => {
+    try {
+        await runQuery("UPDATE reservations SET kitchen_status = ? WHERE id = ?", [req.body.kitchen_status, req.params.id]);
+        io.emit('data_changed', 'reservations');
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -930,7 +948,8 @@ app.patch('/api/reservations/:id/signature', async (req, res) => {
 // Additional Reservation Finance Patches (Simple placeholders that update status or ledger if needed)
 app.post('/api/reservations/:id/finance_approve', async (req, res) => {
     try {
-        await runQuery("UPDATE reservations SET status = 'Confirmed' WHERE id = ?", [req.params.id]);
+        await runQuery("UPDATE reservations SET status = 'Confirmed', finance_approved = 1 WHERE id = ?", [req.params.id]);
+        io.emit('data_changed', 'reservations');
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -939,6 +958,7 @@ app.post('/api/reservations/:id/advance_payment', async (req, res) => {
     try {
         const { amount } = req.body;
         await runQuery("INSERT INTO reservation_ledger (reservation_id, amount, payment_type, status) VALUES (?, ?, 'Deposit', 'Paid')", [req.params.id, amount]);
+        io.emit('data_changed', 'reservations');
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -959,6 +979,7 @@ app.post('/api/inquiries', async (req, res) => {
             "INSERT INTO inquiries (ref_no, customer_name, customer_phone, customer_email, event_type, preferred_date, flexible_date, num_guests, preferred_room_id, budget, requirements, source, assigned_to, follow_up_date, notes, menu_selections, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [ref_no, customer_name, customer_phone, customer_email, event_type, preferred_date, flexible_date ? 1 : 0, num_guests, preferred_room_id, budget, requirements, source, assigned_to, follow_up_date, notes, menu_selections ? JSON.stringify(menu_selections) : null, status || 'New']
         );
+        io.emit('data_changed', 'inquiries');
         res.json({ id: result.lastID });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -970,6 +991,7 @@ app.put('/api/inquiries/:id', async (req, res) => {
             "UPDATE inquiries SET customer_name=?, customer_phone=?, customer_email=?, event_type=?, preferred_date=?, flexible_date=?, num_guests=?, preferred_room_id=?, budget=?, requirements=?, source=?, assigned_to=?, follow_up_date=?, notes=?, menu_selections=?, status=? WHERE id=?",
             [customer_name, customer_phone, customer_email, event_type, preferred_date, flexible_date ? 1 : 0, num_guests, preferred_room_id, budget, requirements, source, assigned_to, follow_up_date, notes, menu_selections ? JSON.stringify(menu_selections) : null, status, req.params.id]
         );
+        io.emit('data_changed', 'inquiries');
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -977,6 +999,7 @@ app.put('/api/inquiries/:id', async (req, res) => {
 app.patch('/api/inquiries/:id/status', async (req, res) => {
     try {
         await runQuery("UPDATE inquiries SET status = ? WHERE id = ?", [req.body.status, req.params.id]);
+        io.emit('data_changed', 'inquiries');
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -992,6 +1015,8 @@ app.post('/api/inquiries/:id/convert', async (req, res) => {
             [booking_no, inq.ref_no, inq.event_type, inq.customer_name, inq.customer_phone, inq.preferred_room_id, inq.preferred_date, inq.num_guests, 'Pending', inq.budget || 0, inq.menu_selections]
         );
         await runQuery("UPDATE inquiries SET status = 'Converted' WHERE id = ?", [req.params.id]);
+        io.emit('data_changed', 'inquiries');
+        io.emit('data_changed', 'reservations');
         res.json({ reservation_id: result.lastID });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -999,6 +1024,7 @@ app.post('/api/inquiries/:id/convert', async (req, res) => {
 app.delete('/api/inquiries/:id', authorize(['admin', 'manager']), async (req, res) => {
     try {
         await runQuery("DELETE FROM inquiries WHERE id = ?", [req.params.id]);
+        io.emit('data_changed', 'inquiries');
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -1115,7 +1141,7 @@ app.post('/api/hotel-rooms', authorize(['admin', 'manager']), async (req, res) =
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.put('/api/hotel-rooms/:id', authorize(['admin', 'manager']), async (req, res) => {
+app.put('/api/hotel-rooms/:id', authorize(['admin', 'manager', 'cashier']), async (req, res) => {
     const { room_number, room_type, price_per_night, capacity, status } = req.body;
     try {
         await runQuery(
@@ -1167,7 +1193,14 @@ app.put('/api/hotel-reservations/:id', authorize(['admin', 'manager', 'cashier']
 
 app.delete('/api/hotel-reservations/:id', authorize(['admin', 'manager']), async (req, res) => {
     try {
-        await runQuery("DELETE FROM hotel_reservations WHERE id=?", [req.params.id]);
+        await runQuery("DELETE FROM hotel_reservations WHERE id = ?", [req.params.id]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/hotel-reservations/:id/finance_approve', async (req, res) => {
+    try {
+        await runQuery("UPDATE hotel_reservations SET finance_approved = 1 WHERE id = ?", [req.params.id]);
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -1202,7 +1235,7 @@ io.on('connection', (socket) => {
     });
 });
 
-const PORT = 301;
+// PORT already defined at top
 server.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });

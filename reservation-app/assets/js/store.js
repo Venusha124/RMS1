@@ -12,6 +12,7 @@ const store = {
         masterBookings: [],
         hotelRooms: [],
         hotelBookings: [],
+        users: [],
         notifications: [],
         settings: { business_name: 'ASCENDIA', currency_symbol: 'Rs.' },
         currentUser: JSON.parse(localStorage.getItem('reservationUser')) || null
@@ -38,12 +39,38 @@ const store = {
     setupSocket() {
         if (typeof io !== 'undefined') {
             this.socket = io('http://localhost:302');
-            this.socket.on('data_updated', async () => {
+            this.socket.on('data_changed', async () => {
+                const activeElement = document.activeElement;
+                const activeId = activeElement ? activeElement.id : null;
+                
+                // Save form state safely
+                const state = {};
+                document.querySelectorAll('input, select, textarea').forEach(el => {
+                    if (el.id) state[el.id] = el.value;
+                });
+
                 await this.refreshData();
                 showToast('Data synced in real-time', 'info');
-                // Re-render current route
+
+                // Re-render without breaking UI
                 if (typeof navigate === 'function' && typeof currentRoute !== 'undefined') {
-                    navigate(currentRoute);
+                    // Temporarily hide transition to avoid flickering if possible, or just call routes directly
+                    const container = document.getElementById('app-view');
+                    if (container && routes[currentRoute]) {
+                        routes[currentRoute](container);
+                        
+                        // Restore form state safely
+                        for (const [id, value] of Object.entries(state)) {
+                            const el = document.getElementById(id);
+                            if (el && el.value !== value) el.value = value;
+                        }
+                        
+                        // Restore focus
+                        if (activeId) {
+                            const el = document.getElementById(activeId);
+                            if (el) el.focus();
+                        }
+                    }
                 }
             });
             this.socket.on('new_notification', (data) => {
@@ -87,7 +114,7 @@ const store = {
 
     async refreshData() {
         try {
-            const [customers, eventRooms, reservations, inquiries, waitlist, maintenanceTasks, settings, equipment, masterBookings, hotelRooms, hotelBookings] = await Promise.all([
+            const [customers, eventRooms, reservations, inquiries, waitlist, maintenanceTasks, settings, equipment, masterBookings, hotelRooms, hotelBookings, users] = await Promise.all([
                 this.fetchAPI('/customers').then(r => r.json()),
                 this.fetchAPI('/event-rooms').then(r => r.json()),
                 this.fetchAPI('/reservations').then(r => r.json()),
@@ -98,7 +125,8 @@ const store = {
                 this.fetchAPI('/equipment').then(r => r.json()).catch(() => []),
                 this.fetchAPI('/master-bookings').then(r => r.json()).catch(() => []),
                 this.fetchAPI('/hotel-rooms').then(r => r.json()).catch(() => []),
-                this.fetchAPI('/hotel-reservations').then(r => r.json()).catch(() => [])
+                this.fetchAPI('/hotel-reservations').then(r => r.json()).catch(() => []),
+                this.fetchAPI('/users').then(r => r.json()).catch(() => [])
             ]);
             const sortDesc = (arr) => Array.isArray(arr) ? arr.sort((a, b) => (b.id || 0) - (a.id || 0)) : arr;
             this.data.customers        = sortDesc(customers);
@@ -112,6 +140,7 @@ const store = {
             this.data.masterBookings   = sortDesc(masterBookings);
             this.data.hotelRooms       = hotelRooms;
             this.data.hotelBookings    = sortDesc(hotelBookings);
+            this.data.users            = sortDesc(users);
             window.dispatchEvent(new CustomEvent('store_updated'));
         } catch (error) {
             console.error('Store refresh error:', error);

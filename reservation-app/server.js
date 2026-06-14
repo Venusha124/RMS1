@@ -565,23 +565,32 @@ app.post('/api/reservations', async (req, res) => {
 // PUT update reservation status (confirm, cancel, etc.)
 app.put('/api/reservations/:id', async (req, res) => {
     const { booking_no, inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes, menu_selections, pax_size, function_type, event_type, package_type, meal_type, start_time, end_time, meal_time, children_count, description, additional_venues, materials_added, event_orders, check_list, event_extensions } = req.body;
-    if (!event_name || !customer_name || !date_start) {
-        return res.status(400).json({ error: 'Event name, customer name and date_start are required' });
-    }
-    if (customer_phone && !/^\+?[0-9\s\-\(\)]{7,15}$/.test(customer_phone)) return res.status(400).json({ error: 'Invalid phone number format' });
-    if (date_end && new Date(date_start) > new Date(date_end)) return res.status(400).json({ error: 'End date cannot be before start date' });
-    if (num_guests && (isNaN(num_guests) || num_guests < 1)) return res.status(400).json({ error: 'Guests must be at least 1' });
-    if (total_price && (isNaN(total_price) || total_price < 0)) return res.status(400).json({ error: 'Total price cannot be negative' });
     try {
-        // Get old record to see if room needs to be freed
+        // Get old record to see if room needs to be freed and to merge fields
         const old = await getOne("SELECT * FROM reservations WHERE id = ?", [req.params.id]);
+        if (!old) return res.status(404).json({ error: "Reservation not found" });
 
-        if (room_id && status === 'Confirmed') {
-            const room = await getOne("SELECT * FROM event_rooms WHERE id = ?", [room_id]);
+        const merged_event_name = event_name !== undefined ? event_name : old.event_name;
+        const merged_customer_name = customer_name !== undefined ? customer_name : old.customer_name;
+        const merged_date_start = date_start !== undefined ? date_start : old.date_start;
+
+        if (!merged_event_name || !merged_customer_name || !merged_date_start) {
+            return res.status(400).json({ error: 'Event name, customer name and date_start are required' });
+        }
+        if (customer_phone !== undefined && customer_phone && !/^\+?[0-9\s\-\(\)]{7,15}$/.test(customer_phone)) return res.status(400).json({ error: 'Invalid phone number format' });
+        if (date_end !== undefined && date_end && new Date(merged_date_start) > new Date(date_end)) return res.status(400).json({ error: 'End date cannot be before start date' });
+        if (num_guests !== undefined && num_guests && (isNaN(num_guests) || num_guests < 1)) return res.status(400).json({ error: 'Guests must be at least 1' });
+        if (total_price !== undefined && total_price && (isNaN(total_price) || total_price < 0)) return res.status(400).json({ error: 'Total price cannot be negative' });
+
+        const merged_room_id = room_id !== undefined ? room_id : old.room_id;
+        const merged_status = status !== undefined ? status : old.status;
+
+        if (merged_room_id && merged_status === 'Confirmed') {
+            const room = await getOne("SELECT * FROM event_rooms WHERE id = ?", [merged_room_id]);
             if (room) {
                 const setupBuffer = room.setup_buffer_hours || 0;
                 const cleanupBuffer = room.cleanup_buffer_hours || 0;
-                const existing = await allQuery("SELECT * FROM reservations WHERE room_id = ? AND status = 'Confirmed' AND id != ?", [room_id, req.params.id]);
+                const existing = await allQuery("SELECT * FROM reservations WHERE room_id = ? AND status = 'Confirmed' AND id != ?", [merged_room_id, req.params.id]);
                 
                 for (let r of existing) {
                     const rStart = new Date(r.date_start);
@@ -589,8 +598,9 @@ app.put('/api/reservations/:id', async (req, res) => {
                     rStart.setHours(rStart.getHours() - setupBuffer);
                     rEnd.setHours(rEnd.getHours() + cleanupBuffer);
                     
-                    const newStart = new Date(date_start);
-                    const newEnd = new Date(date_end || date_start);
+                    const newStart = new Date(merged_date_start);
+                    const merged_date_end = date_end !== undefined ? date_end : old.date_end;
+                    const newEnd = new Date(merged_date_end || merged_date_start);
                     newStart.setHours(newStart.getHours() - setupBuffer);
                     newEnd.setHours(newEnd.getHours() + cleanupBuffer);
                     
@@ -604,13 +614,43 @@ app.put('/api/reservations/:id', async (req, res) => {
         await runQuery(
             `UPDATE reservations SET booking_no=?, inquiry_ref_no=?, event_name=?, customer_name=?, customer_phone=?, room_id=?, date_start=?, date_end=?, num_guests=?, status=?, total_price=?, notes=?, menu_selections=?, pax_size=?, function_type=?, event_type=?, package_type=?, meal_type=?, start_time=?, end_time=?, meal_time=?, children_count=?, description=?, additional_venues=?, materials_added=?, event_orders=?, check_list=?, event_extensions=?
              WHERE id=?`,
-            [booking_no || old.booking_no, inquiry_ref_no || old.inquiry_ref_no, event_name, customer_name, customer_phone, room_id, date_start, date_end, num_guests, status, total_price, notes, menu_selections !== undefined ? JSON.stringify(menu_selections) : old.menu_selections, pax_size !== undefined ? pax_size : old.pax_size, function_type !== undefined ? function_type : old.function_type, event_type !== undefined ? event_type : old.event_type, package_type !== undefined ? package_type : old.package_type, meal_type !== undefined ? meal_type : old.meal_type, start_time !== undefined ? start_time : old.start_time, end_time !== undefined ? end_time : old.end_time, meal_time !== undefined ? meal_time : old.meal_time, children_count !== undefined ? children_count : old.children_count, description !== undefined ? description : old.description, additional_venues !== undefined ? JSON.stringify(additional_venues) : old.additional_venues, materials_added !== undefined ? JSON.stringify(materials_added) : old.materials_added, event_orders !== undefined ? JSON.stringify(event_orders) : old.event_orders, check_list !== undefined ? JSON.stringify(check_list) : old.check_list, event_extensions !== undefined ? JSON.stringify(event_extensions) : old.event_extensions, req.params.id]
+            [
+                booking_no !== undefined ? booking_no : old.booking_no,
+                inquiry_ref_no !== undefined ? inquiry_ref_no : old.inquiry_ref_no,
+                merged_event_name,
+                merged_customer_name,
+                customer_phone !== undefined ? customer_phone : old.customer_phone,
+                merged_room_id,
+                merged_date_start,
+                date_end !== undefined ? date_end : old.date_end,
+                num_guests !== undefined ? num_guests : old.num_guests,
+                merged_status,
+                total_price !== undefined ? total_price : old.total_price,
+                notes !== undefined ? notes : old.notes,
+                menu_selections !== undefined ? JSON.stringify(menu_selections) : old.menu_selections,
+                pax_size !== undefined ? pax_size : old.pax_size,
+                function_type !== undefined ? function_type : old.function_type,
+                event_type !== undefined ? event_type : old.event_type,
+                package_type !== undefined ? package_type : old.package_type,
+                meal_type !== undefined ? meal_type : old.meal_type,
+                start_time !== undefined ? start_time : old.start_time,
+                end_time !== undefined ? end_time : old.end_time,
+                meal_time !== undefined ? meal_time : old.meal_time,
+                children_count !== undefined ? children_count : old.children_count,
+                description !== undefined ? description : old.description,
+                additional_venues !== undefined ? JSON.stringify(additional_venues) : old.additional_venues,
+                materials_added !== undefined ? JSON.stringify(materials_added) : old.materials_added,
+                event_orders !== undefined ? JSON.stringify(event_orders) : old.event_orders,
+                check_list !== undefined ? JSON.stringify(check_list) : old.check_list,
+                event_extensions !== undefined ? JSON.stringify(event_extensions) : old.event_extensions,
+                req.params.id
+            ]
         );
 
         let promoted = null;
         // Sync room status based on reservation status changes
         if (old && old.room_id) {
-            if (status === 'Confirmed') {
+            if (merged_status === 'Confirmed') {
                 await runQuery("UPDATE event_rooms SET status = 'Booked' WHERE id = ?", [old.room_id]);
                 const existing = await allQuery("SELECT id FROM maintenance_tasks WHERE reservation_id = ?", [req.params.id]);
                 if (existing.length === 0) {
@@ -1005,19 +1045,13 @@ app.post('/api/reservations/:id/advance_payment', async (req, res) => {
 
 app.post('/api/reservations/:id/finance_approve', async (req, res) => {
     try {
-        const { payment_slip, amount } = req.body;
         const old = await getOne("SELECT * FROM reservations WHERE id = ?", [req.params.id]);
         if (!old) return res.status(404).json({ error: 'Not found' });
         
-        await runQuery(`
-            INSERT INTO reservation_ledger (reservation_id, amount, payment_type, status, paid_date)
-            VALUES (?, ?, 'Advance Payment', 'Paid', datetime('now'))
-        `, [req.params.id, amount]);
-
-        await runQuery("UPDATE reservations SET status = 'Confirmed', payment_slip = ? WHERE id = ?", [payment_slip || null, req.params.id]);
+        await runQuery("UPDATE reservations SET status = 'Confirmed', finance_approved = 1 WHERE id = ?", [req.params.id]);
         
         // Notify admin
-        const msg = `Finance team approved Booking #${old.booking_no || old.id}. Advance payment slip attached.`;
+        const msg = `Finance team approved Booking #${old.booking_no || old.id}.`;
         await runQuery("INSERT INTO notifications (role, message) VALUES (?, ?)", ['admin', msg]);
         io.emit('new_notification', { role: 'admin', message: msg });
         io.emit('data_updated'); // Trigger refresh across clients
@@ -1219,7 +1253,24 @@ app.put('/api/hotel-reservations/:id', async (req, res) => {
 
 app.delete('/api/hotel-reservations/:id', async (req, res) => {
     try {
-        await runQuery("DELETE FROM hotel_reservations WHERE id=?", [req.params.id]);
+        await runQuery("DELETE FROM hotel_reservations WHERE id = ?", [req.params.id]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/hotel-reservations/:id/finance_approve', async (req, res) => {
+    try {
+        const old = await getOne("SELECT * FROM hotel_reservations WHERE id = ?", [req.params.id]);
+        if (!old) return res.status(404).json({ error: 'Not found' });
+        
+        await runQuery("UPDATE hotel_reservations SET status = 'Confirmed', finance_approved = 1 WHERE id = ?", [req.params.id]);
+        
+        // Notify admin
+        const msg = `Finance team approved Hotel Booking #${old.booking_no || old.id}.`;
+        await runQuery("INSERT INTO notifications (role, message) VALUES (?, ?)", ['admin', msg]);
+        io.emit('new_notification', { role: 'admin', message: msg });
+        io.emit('data_updated'); // Trigger refresh across clients
+        
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });

@@ -74,6 +74,10 @@
                     <i class="fa-regular fa-calendar-days"></i>
                     <span>Calendar</span>
                 </a>
+                <a href="#/kitchen-prep" class="nav-item" data-route="/kitchen-prep">
+                    <i class="fa-solid fa-kitchen-set"></i>
+                    <span>Kitchen Prep</span>
+                </a>
                 <a href="#/reports" class="nav-item" data-route="/reports">
                     <i class="fa-solid fa-chart-line"></i><span>Reports</span>
                 </a>
@@ -101,9 +105,8 @@
         <main class="main-container">
             <!-- Topbar -->
             <header class="topbar">
-                <div class="search-bar">
-                    <i class="fa-solid fa-magnifying-glass" style="color:var(--text-muted); margin-right:12px;"></i>
-                    <input type="text" id="globalSearch" placeholder="Search reservations, customers and more...">
+                <div class="search-bar" style="visibility: hidden;">
+                    <!-- Search bar removed as per request -->
                 </div>
                 <div class="topbar-actions">
                     <button class="notification-btn" id="refreshBtn" title="Refresh Data">
@@ -524,59 +527,120 @@
 
     <!-- Checkout / Invoice Modal -->
     <div class="modal-overlay" id="checkoutModal">
-        <div class="modal-content" style="max-width:700px; width:90%; padding:30px;">
+        <div class="modal-content" style="max-width:550px; width:95%; padding:20px;">
             <button class="modal-close" onclick="closeModal('checkoutModal')" style="display:none;" id="checkoutCloseBtnTop"><i class="fa-solid fa-xmark"></i></button>
             
-            <div id="checkoutPrintArea" style="background:white; color:black; padding:40px; border-radius:8px; font-family:sans-serif;">
-                <div style="text-align:center; border-bottom:2px solid #ddd; padding-bottom:20px; margin-bottom:20px;">
-                    <h1 style="margin:0; font-size:28px; color:#333;">HOTEL ASCENDIA</h1>
-                    <p style="margin:5px 0 0; color:#666; font-size:14px;">123 Resort Boulevard, Paradise City<br>Tel: +94 11 234 5678 | Email: billing@ascendia.com</p>
-                    <h2 style="margin:20px 0 0; font-size:22px; color:#222; text-transform:uppercase; letter-spacing:2px;">Final Invoice</h2>
-                </div>
-
-                <div style="display:flex; justify-content:space-between; margin-bottom:30px; font-size:14px;">
+            <div id="checkoutPrintArea" style="background:white; color:black; padding:25px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 500px; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <!-- Header -->
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px;">
                     <div>
-                        <div style="margin-bottom:5px;"><strong>Billed To:</strong> <span id="chk_customer_name"></span></div>
-                        <div style="margin-bottom:5px;"><strong>Event/Room:</strong> <span id="chk_event_name"></span></div>
+                        <h1 style="color:#4a72c1; font-size:24px; margin:0; font-weight:normal;">RECEIPT</h1>
                     </div>
                     <div style="text-align:right;">
-                        <div style="margin-bottom:5px;"><strong>Invoice No:</strong> <span id="chk_booking_no"></span></div>
-                        <div style="margin-bottom:5px;"><strong>Date:</strong> <span id="chk_date"></span></div>
-                        <div style="margin-bottom:5px;"><strong>Status:</strong> <span id="chk_status" style="font-weight:bold;"></span></div>
+                        <!-- Logo area -->
+                        <div style="display:flex; align-items:center; justify-content:flex-end;">
+                            <i class="fa-solid fa-hotel" style="font-size:20px; color:#4a72c1; margin-right:8px;"></i>
+                            <div style="font-size:18px; font-weight:bold; color:#4a72c1; margin:0;">ASCENDIA</div>
+                        </div>
+                        <div style="font-size:10px; color:#666; margin-top:2px;">HOTEL SOFTWARE</div>
                     </div>
                 </div>
 
-                <table style="width:100%; border-collapse:collapse; margin-bottom:30px;">
+                <!-- Receipt Info Table -->
+                <table style="width:100%; border-collapse:collapse; margin-bottom:20px; text-align:center;">
                     <thead>
-                        <tr style="background:#f4f4f4; border-bottom:2px solid #ccc;">
-                            <th style="padding:12px; text-align:left; font-weight:bold;">Description</th>
-                            <th style="padding:12px; text-align:right; font-weight:bold;">Amount</th>
+                        <tr style="border-bottom:2px solid #eee;">
+                            <th style="padding:6px; font-size:11px; color:#333;">Receipt Number</th>
+                            <th style="padding:6px; font-size:11px; color:#333;">Receipt Date</th>
+                            <th style="padding:6px; font-size:11px; color:#333;">Status</th>
                         </tr>
                     </thead>
-                    <tbody id="chk_items_body">
+                    <tbody>
+                        <tr>
+                            <td style="padding:8px; font-size:12px;" id="chk_booking_no"></td>
+                            <td style="padding:8px; font-size:12px;" id="chk_date"></td>
+                            <td style="padding:8px; font-size:12px; font-weight:bold; color:#10b981;" id="chk_status"></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Addresses -->
+                <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+                    <div style="width:45%;">
+                        <div style="color:#4a72c1; font-weight:bold; font-size:11px; margin-bottom:5px;">SELLER</div>
+                        <div style="font-size:12px; line-height:1.4;">
+                            <div>Hotel Ascendia</div>
+                            <div>123 Resort Boulevard</div>
+                            <div>Paradise City, 00100</div>
+                            <div>Sri Lanka</div>
+                            <div style="margin-top:5px; font-size:10px;">VAT Reg No: 123456789</div>
+                        </div>
+                    </div>
+                    <div style="width:45%;">
+                        <div style="color:#4a72c1; font-weight:bold; font-size:11px; margin-bottom:5px;">CUSTOMER</div>
+                        <div style="font-size:12px; line-height:1.4;">
+                            <div id="chk_customer_name" style="font-weight:bold;"></div>
+                            <div>Event/Venue: <span id="chk_event_name"></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Line Items Table -->
+                <table style="width:100%; border-collapse:collapse; margin-bottom:20px;">
+                    <thead>
+                        <tr style="background-color:#4a72c1; color:white;">
+                            <th style="padding:8px; text-align:left; font-size:11px; font-weight:normal;">DESCRIPTION</th>
+                            <th style="padding:8px; text-align:center; font-size:11px; font-weight:normal;">QUANTITY</th>
+                            <th style="padding:8px; text-align:right; font-size:11px; font-weight:normal;">UNIT PRICE</th>
+                            <th style="padding:8px; text-align:right; font-size:11px; font-weight:normal;">SUBTOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody id="chk_items_body" style="font-size:12px;">
                         <!-- Invoice items injected here -->
                     </tbody>
                 </table>
 
-                <div style="display:flex; justify-content:flex-end; border-top:2px solid #ccc; padding-top:20px;">
-                    <div style="width:300px;">
-                        <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:16px;">
-                            <span>Subtotal:</span>
-                            <span id="chk_subtotal" style="font-weight:bold;"></span>
-                        </div>
-                        <div style="display:flex; justify-content:space-between; margin-bottom:15px; font-size:16px; color:#555;">
-                            <span>Taxes & Fees:</span>
-                            <span id="chk_tax"></span>
-                        </div>
-                        <div style="display:flex; justify-content:space-between; font-size:24px; font-weight:bold; border-top:1px solid #ddd; padding-top:15px; color:#000;">
-                            <span>Grand Total:</span>
-                            <span id="chk_grand_total"></span>
-                        </div>
+                <!-- Totals Area -->
+                <div style="display:flex; justify-content:space-between; margin-bottom:30px;">
+                    <div style="width:40%; font-size:11px;">
+                        <div style="font-weight:bold; margin-bottom:3px;">Notes:</div>
+                        <div style="color:#666;">Thank you for your business.</div>
+                    </div>
+                    <div style="width:60%;">
+                        <table style="width:100%; font-size:12px;">
+                            <tr>
+                                <td style="padding:3px 10px; text-align:right;">Subtotal</td>
+                                <td style="padding:3px 0; text-align:right; width:100px;" id="chk_subtotal"></td>
+                            </tr>
+                            <tr>
+                                <td style="padding:3px 10px; text-align:right; border-bottom:1px solid #eee;">Tax (0%)</td>
+                                <td style="padding:3px 0; text-align:right; border-bottom:1px solid #eee;" id="chk_tax"></td>
+                            </tr>
+                            <tr id="chk_advance_payment_row" style="display:none; color:#ef4444;">
+                                <td style="padding:3px 10px; text-align:right; border-bottom:1px solid #eee;">Advance Payment</td>
+                                <td style="padding:3px 0; text-align:right; border-bottom:1px solid #eee;" id="chk_advance_payment"></td>
+                            </tr>
+                            <tr>
+                                <td style="padding:6px 10px; text-align:right; font-weight:bold; font-size:14px; color:#10b981;">Total Due</td>
+                                <td style="padding:6px 0; text-align:right; font-weight:bold; font-size:14px; color:#10b981;" id="chk_grand_total"></td>
+                            </tr>
+                        </table>
                     </div>
                 </div>
-                
-                <div style="text-align:center; margin-top:50px; font-size:12px; color:#888;">
-                    <p>Thank you for choosing Hotel Ascendia!</p>
+
+                <!-- Signatures -->
+                <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+                    <div style="width:40%; text-align:center; border-top:1px solid #000; padding-top:5px; font-size:11px;">
+                        Salesperson
+                    </div>
+                    <div style="width:40%; text-align:center; border-top:1px solid #000; padding-top:5px; font-size:11px;">
+                        Signature
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div style="text-align:center; font-size:12px; font-weight:bold; color:#4a72c1; margin-top:10px;">
+                    THANK YOU FOR THE PAYMENT!
                 </div>
             </div>
 
@@ -587,6 +651,109 @@
                 </button>
                 <button class="btn btn-primary" id="markPaidCheckoutBtn" style="background:#10b981; flex:1; justify-content:center;">
                     <i class="fa-solid fa-check-double" style="margin-right:8px;"></i>Mark as Paid & Checkout
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Agreement Modal -->
+    <div class="modal-overlay" id="agreementModal">
+        <div class="modal-content" style="max-width: 800px; padding: 20px;">
+            <button class="modal-close" onclick="closeModal('agreementModal')" id="agreementCloseBtnTop"><i class="fa-solid fa-xmark"></i></button>
+            
+            <div id="agreementPrintArea" style="background:#fff; color:#334155; padding:40px; font-family:'Outfit', sans-serif; line-height:1.6;">
+                <!-- Header -->
+                <div style="display:flex; justify-content:space-between; align-items:flex-end; padding-bottom:10px; margin-bottom:30px;">
+                    <div style="flex:1;">
+                        <h1 style="margin:0; font-size:32px; color:#1e1b4b; font-weight:800; letter-spacing:2px; text-transform:uppercase;">Ascendia</h1>
+                        <p style="margin:0; font-size:16px; color:#1e1b4b; letter-spacing:4px;">HOTEL INC</p>
+                        <div style="height:2px; background:#d4af37; width:60%; margin-top:8px;"></div>
+                    </div>
+                    <div style="text-align:right; font-size:12px; color:#475569; line-height:1.5;">
+                        Ascendia Hotel & Resort<br>
+                        reservations@ascendia.com<br>
+                        +94 11 234 5678<br>
+                        www.ascendia.com
+                    </div>
+                </div>
+
+                <!-- Title -->
+                <h2 style="text-align:center; color:#1e293b; font-size:24px; margin-bottom:20px; font-weight:700;">Event Reservation Agreement</h2>
+
+                <!-- Intro Paragraph -->
+                <p style="font-size:13px; text-align:justify; margin-bottom:30px;">
+                    This Event Reservation Agreement ("Agreement") is entered into as of <strong><span id="agr_date_issued"></span></strong>, by and between Ascendia Hotel ("Hotel") and <strong><span id="agr_customer_name"></span></strong> ("Client"). The Hotel and the Client are sometimes individually referred to as a "Party" and collectively referred to as the "Parties."
+                </p>
+
+                <!-- 1. Booking Details -->
+                <h3 style="color:#1e293b; font-size:18px; margin-bottom:15px; border-bottom:1px solid #e2e8f0; padding-bottom:5px;">1. Booking Details</h3>
+                <p style="font-size:13px; margin-bottom:20px;">
+                    For the purpose of this Agreement, the following booking parameters have been finalized:
+                </p>
+                <div style="font-size:13px; margin-bottom:20px;">
+                    <div style="margin-bottom:8px;"><strong>a. Booking Reference:</strong> <span id="agr_booking_no"></span></div>
+                    <div style="margin-bottom:8px;"><strong>b. Contact Number:</strong> <span id="agr_customer_phone"></span></div>
+                </div>
+
+                <!-- 2. Event Information -->
+                <h3 style="color:#1e293b; font-size:18px; margin-bottom:15px; border-bottom:1px solid #e2e8f0; padding-bottom:5px;">2. Event Information</h3>
+                <p style="font-size:13px; margin-bottom:20px;">
+                    The Hotel agrees to host the Client's event according to the following schedule and venue allocation:
+                </p>
+                <div style="font-size:13px; margin-bottom:20px;">
+                    <div style="margin-bottom:8px;"><strong>a. Event Name & Type:</strong> <span id="agr_event_name"></span> (<span id="agr_function_type"></span>)</div>
+                    <div style="margin-bottom:8px;"><strong>b. Date & Timings:</strong> <span id="agr_event_date"></span> from <span id="agr_start_time"></span> to <span id="agr_end_time"></span></div>
+                    <div style="margin-bottom:8px;"><strong>c. Main Venue:</strong> <span id="agr_room_name"></span></div>
+                    <div style="margin-bottom:8px;"><strong>d. Additional Venues:</strong> <span id="agr_additional_venues"></span></div>
+                </div>
+
+                <!-- 3. Catering & Packages -->
+                <h3 style="color:#1e293b; font-size:18px; margin-bottom:15px; border-bottom:1px solid #e2e8f0; padding-bottom:5px;">3. Catering & Requirements</h3>
+                <p style="font-size:13px; margin-bottom:20px;">
+                    The Hotel shall provide catering and additional services as specified below:
+                </p>
+                <div style="font-size:13px; margin-bottom:20px;">
+                    <div style="margin-bottom:8px;"><strong>a. Pax Size:</strong> <span id="agr_pax_size"></span> guests</div>
+                    <div style="margin-bottom:8px;"><strong>b. Package Type:</strong> <span id="agr_package_type"></span></div>
+                    <div style="margin-bottom:8px;"><strong>c. Menu Selections:</strong> <div style="padding-left:15px; margin-top:5px;" id="agr_menu_selections"></div></div>
+                    <div style="margin-bottom:8px;"><strong>d. Special Requirements:</strong> <div style="padding-left:15px; margin-top:5px;" id="agr_special_reqs"></div></div>
+                </div>
+
+                <!-- 4. Financials -->
+                <h3 style="color:#1e293b; font-size:18px; margin-bottom:15px; border-bottom:1px solid #e2e8f0; padding-bottom:5px;">4. Financial Summary</h3>
+                <p style="font-size:13px; margin-bottom:20px;">
+                    The Client agrees to the following payment schedule:
+                </p>
+                <div style="font-size:13px; margin-bottom:20px;">
+                    <div style="margin-bottom:8px;"><strong>a. Total Estimated Price:</strong> <span id="agr_total_price" style="font-weight:bold;"></span></div>
+                    <div style="margin-bottom:8px;"><strong>b. Advance Payment:</strong> <span id="agr_advance"></span></div>
+                    <div style="margin-bottom:8px;"><strong>c. Balance Due:</strong> <span id="agr_balance"></span></div>
+                </div>
+
+                <!-- 5. Terms & Conditions -->
+                <h3 style="color:#1e293b; font-size:18px; margin-bottom:15px; border-bottom:1px solid #e2e8f0; padding-bottom:5px;">5. Terms and Conditions</h3>
+                <div style="font-size:12px; margin-bottom:40px;">
+                    <div style="margin-bottom:10px;"><strong>a. Payments:</strong> A non-refundable advance payment is required to confirm this booking. The balance must be paid prior to the event.</div>
+                    <div style="margin-bottom:10px;"><strong>b. Guest Count:</strong> The final guest count must be confirmed 48 hours prior. The Client will be billed for the guaranteed number or actual number, whichever is higher.</div>
+                    <div style="margin-bottom:10px;"><strong>c. Damages:</strong> Any damages to the venue property during the event will be billed directly to the Client.</div>
+                    <div style="margin-bottom:10px;"><strong>d. Outside Items:</strong> Outside food and beverages are strictly prohibited unless previously authorized in writing.</div>
+                </div>
+
+                <!-- Signatures -->
+                <div style="display:flex; justify-content:space-between; margin-top:50px; font-size:14px; font-weight:bold; color:#1e293b;">
+                    <div style="width:40%; text-align:center; border-top:2px solid #1e293b; padding-top:10px;">
+                        Authorized Signature (Ascendia)
+                    </div>
+                    <div style="width:40%; text-align:center; border-top:2px solid #1e293b; padding-top:10px;">
+                        Client Signature
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-actions" style="margin-top:20px;" id="agreementActionButtons">
+                <button class="btn btn-outline" onclick="closeModal('agreementModal')">Close</button>
+                <button class="btn btn-primary" onclick="printAgreement()" style="background:#4b5563;">
+                    <i class="fa-solid fa-print" style="margin-right:8px;"></i>Print Agreement
                 </button>
             </div>
         </div>
@@ -720,52 +887,162 @@
 
     <!-- Hotel Checkout Modal -->
     <div class="modal-overlay" id="hotelCheckoutModal" style="display:none;">
-        <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-content" style="max-width: 550px; width:95%; padding:20px;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h3><i class="fa-solid fa-file-invoice" style="margin-right:8px; color:var(--primary);"></i> Hotel Checkout & Invoice</h3>
                 <button class="btn btn-outline" onclick="printHotelCheckoutInvoice()" style="margin-bottom:10px;"><i class="fa-solid fa-print"></i> Print</button>
             </div>
             
-            <div id="hotelCheckoutPrintArea" style="background:#fff; color:#000; padding:20px; border-radius:8px; font-family:monospace; margin-bottom:20px;">
-                <div style="text-align:center; border-bottom:1px dashed #ccc; padding-bottom:10px; margin-bottom:10px;">
-                    <h2 style="margin:0;">ASCENDIA HOTEL</h2>
-                    <div>Hotel Booking Invoice</div>
-                </div>
-                
-                <div style="display:flex; justify-content:space-between; margin-bottom:15px; font-size:14px;">
+            <div id="hotelCheckoutPrintArea" style="background:white; color:black; padding:25px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 500px; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <!-- Header -->
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px;">
                     <div>
-                        <strong>Customer:</strong> <span id="hchk_customer"></span><br>
-                        <strong>Booking No:</strong> <span id="hchk_booking_no"></span><br>
-                        <strong>Status:</strong> <span id="hchk_status"></span>
+                        <h1 style="color:#4a72c1; font-size:24px; margin:0; font-weight:normal;">RECEIPT</h1>
                     </div>
                     <div style="text-align:right;">
-                        <strong>Room:</strong> <span id="hchk_room"></span><br>
-                        <strong>Dates:</strong> <span id="hchk_dates"></span>
+                        <!-- Logo area -->
+                        <div style="display:flex; align-items:center; justify-content:flex-end;">
+                            <i class="fa-solid fa-hotel" style="font-size:20px; color:#4a72c1; margin-right:8px;"></i>
+                            <div style="font-size:18px; font-weight:bold; color:#4a72c1; margin:0;">ASCENDIA</div>
+                        </div>
+                        <div style="font-size:10px; color:#666; margin-top:2px;">HOTEL SOFTWARE</div>
                     </div>
                 </div>
 
-                <table style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+                <!-- Receipt Info Table -->
+                <table style="width:100%; border-collapse:collapse; margin-bottom:20px; text-align:center;">
                     <thead>
-                        <tr style="border-bottom:1px solid #000; text-align:left;">
-                            <th style="padding:8px 0;">Description</th>
-                            <th style="padding:8px 0; text-align:right;">Amount (Rs.)</th>
+                        <tr style="border-bottom:2px solid #eee;">
+                            <th style="padding:6px; font-size:11px; color:#333;">Receipt Number</th>
+                            <th style="padding:6px; font-size:11px; color:#333;">Check-in / out</th>
+                            <th style="padding:6px; font-size:11px; color:#333;">Status</th>
                         </tr>
                     </thead>
-                    <tbody id="hchk_items_body">
-                        <!-- Populated dynamically -->
+                    <tbody>
+                        <tr>
+                            <td style="padding:8px; font-size:12px;" id="hchk_booking_no"></td>
+                            <td style="padding:8px; font-size:12px;" id="hchk_dates"></td>
+                            <td style="padding:8px; font-size:12px; font-weight:bold; color:#10b981;" id="hchk_status"></td>
+                        </tr>
                     </tbody>
                 </table>
-                
-                <div style="border-top:1px dashed #ccc; padding-top:10px; text-align:right;">
-                    <div style="font-size:14px;">Room Subtotal: <span id="hchk_room_total">0.00</span></div>
-                    <div style="font-size:14px;">Restaurant Total: <span id="hchk_pos_total">0.00</span></div>
-                    <div style="font-size:18px; font-weight:bold; margin-top:5px;">Grand Total: <span id="hchk_grand_total">0.00</span></div>
+
+                <!-- Addresses -->
+                <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+                    <div style="width:45%;">
+                        <div style="color:#4a72c1; font-weight:bold; font-size:11px; margin-bottom:5px;">SELLER</div>
+                        <div style="font-size:12px; line-height:1.4;">
+                            <div>Hotel Ascendia</div>
+                            <div>123 Resort Boulevard</div>
+                            <div>Paradise City, 00100</div>
+                            <div>Sri Lanka</div>
+                            <div style="margin-top:5px; font-size:10px;">VAT Reg No: 123456789</div>
+                        </div>
+                    </div>
+                    <div style="width:45%;">
+                        <div style="color:#4a72c1; font-weight:bold; font-size:11px; margin-bottom:5px;">CUSTOMER</div>
+                        <div style="font-size:12px; line-height:1.4;">
+                            <div id="hchk_customer" style="font-weight:bold;"></div>
+                            <div>Room: <span id="hchk_room"></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Line Items Table -->
+                <table style="width:100%; border-collapse:collapse; margin-bottom:20px;">
+                    <thead>
+                        <tr style="background-color:#4a72c1; color:white;">
+                            <th style="padding:8px; text-align:left; font-size:11px; font-weight:normal;">DESCRIPTION</th>
+                            <th style="padding:8px; text-align:center; font-size:11px; font-weight:normal;">QUANTITY</th>
+                            <th style="padding:8px; text-align:right; font-size:11px; font-weight:normal;">UNIT PRICE</th>
+                            <th style="padding:8px; text-align:right; font-size:11px; font-weight:normal;">SUBTOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody id="hchk_items_body" style="font-size:12px;">
+                        <!-- Invoice items injected here -->
+                    </tbody>
+                </table>
+
+                <!-- Totals Area -->
+                <div style="display:flex; justify-content:space-between; margin-bottom:30px;">
+                    <div style="width:40%; font-size:11px;">
+                        <div style="font-weight:bold; margin-bottom:3px;">Notes:</div>
+                        <div style="color:#666;">Thank you for your stay.</div>
+                    </div>
+                    <div style="width:60%;">
+                        <table style="width:100%; font-size:12px;">
+                            <tr>
+                                <td style="padding:3px 10px; text-align:right;">Room Subtotal</td>
+                                <td style="padding:3px 0; text-align:right; width:100px;" id="hchk_room_total"></td>
+                            </tr>
+                            <tr>
+                                <td style="padding:3px 10px; text-align:right; border-bottom:1px solid #eee;">Restaurant Total</td>
+                                <td style="padding:3px 0; text-align:right; border-bottom:1px solid #eee;" id="hchk_pos_total"></td>
+                            </tr>
+                            <tr>
+                                <td style="padding:6px 10px; text-align:right; font-weight:bold; font-size:14px; color:#10b981;">Total Due</td>
+                                <td style="padding:6px 0; text-align:right; font-weight:bold; font-size:14px; color:#10b981;" id="hchk_grand_total"></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Signatures -->
+                <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+                    <div style="width:40%; text-align:center; border-top:1px solid #000; padding-top:5px; font-size:11px;">
+                        Receptionist
+                    </div>
+                    <div style="width:40%; text-align:center; border-top:1px solid #000; padding-top:5px; font-size:11px;">
+                        Signature
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div style="text-align:center; font-size:12px; font-weight:bold; color:#4a72c1; margin-top:10px;">
+                    THANK YOU FOR THE PAYMENT!
                 </div>
             </div>
 
             <div class="modal-actions">
                 <button class="btn btn-outline" onclick="document.getElementById('hotelCheckoutModal').style.display='none'">Close</button>
                 <button class="btn btn-primary" id="markHotelPaidBtn">Finalize Checkout</button>
+            </div>
+        </div>
+    <!-- User Management Modal -->
+    <div class="modal" id="createUserModal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>Create New User</h2>
+                <button class="close-btn" onclick="document.getElementById('createUserModal').style.display='none'"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="newUser_name" placeholder="John Doe">
+                </div>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="newUser_username" placeholder="johndoe">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="newUser_password" placeholder="Min 4 characters">
+                </div>
+                <div class="form-group">
+                    <label>Role</label>
+                    <select id="newUser_role">
+                        <option value="admin">Admin</option>
+                        <option value="manager">Manager</option>
+                        <option value="cashier">Cashier</option>
+                        <option value="kitchen">Kitchen</option>
+                        <option value="waiter">Waiter</option>
+                        <option value="finance">Finance</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="document.getElementById('createUserModal').style.display='none'">Cancel</button>
+                <button class="btn btn-primary" onclick="saveNewUser()">Create User</button>
             </div>
         </div>
     </div>

@@ -217,6 +217,14 @@ db.serialize(() => {
             db.run("ALTER TABLE reservations ADD COLUMN children_count INTEGER", (err) => {});
             db.run("ALTER TABLE reservations ADD COLUMN description TEXT", (err) => {});
             db.run("ALTER TABLE reservations ADD COLUMN pos_charges REAL DEFAULT 0.0", (err) => {});
+            db.run("ALTER TABLE reservations ADD COLUMN advance_payment REAL DEFAULT 0.0", (err) => {});
+            db.run("ALTER TABLE reservations ADD COLUMN additional_venues TEXT", (err) => {});
+            db.run("ALTER TABLE reservations ADD COLUMN materials_added TEXT", (err) => {});
+            db.run("ALTER TABLE reservations ADD COLUMN event_orders TEXT", (err) => {});
+            db.run("ALTER TABLE reservations ADD COLUMN check_list TEXT", (err) => {});
+            db.run("ALTER TABLE reservations ADD COLUMN event_extensions TEXT", (err) => {});
+            db.run("ALTER TABLE reservations ADD COLUMN finance_approved INTEGER DEFAULT 0", (err) => {});
+            db.run("ALTER TABLE reservations ADD COLUMN kitchen_status TEXT DEFAULT 'Pending'", (err) => {});
         }
     });
 
@@ -235,8 +243,13 @@ db.serialize(() => {
         total_price REAL,
         pos_charges REAL DEFAULT 0.0,
         date_created TEXT DEFAULT (datetime('now')),
+        finance_approved INTEGER DEFAULT 0,
         FOREIGN KEY(hotel_room_id) REFERENCES hotel_rooms(id)
-    )`);
+    )`, (err) => {
+        if (!err) {
+            db.run("ALTER TABLE hotel_reservations ADD COLUMN finance_approved INTEGER DEFAULT 0", (err) => {});
+        }
+    });
     
     // 13. Waitlist Queue
     db.run(`CREATE TABLE IF NOT EXISTS waitlist (
